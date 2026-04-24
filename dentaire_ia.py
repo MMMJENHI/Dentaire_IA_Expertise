@@ -7,6 +7,26 @@ from scipy.signal import savgol_filter
 from PIL import Image
 import pandas as pd
 import time
+# --- COPIEZ ET COLLEZ CE BLOC DANS DENTAIRE_IA.PY ---
+
+uploaded_file = st.file_uploader("Charger la radiographie (Dent 16)", type=["jpg", "png", "jpeg"])
+
+if uploaded_file is not None:
+    # Si vous glissez un fichier sur le site, l'IA utilise celui-là
+    raw_img = Image.open(uploaded_file)
+else:
+    # Si vous ne glissez rien, l'IA cherche 'dent.jpg' dans votre dossier GitHub
+    try:
+        # IMPORTANT : Ne mettez pas de chemin comme C:/Users/TOSHIBA/
+        # Mettez juste le nom du fichier entre guillemets
+        raw_img = Image.open("dent.jpg")
+        st.info("💡 Mode Démonstration : Image 'dent.jpg' chargée depuis GitHub.")
+    except FileNotFoundError:
+        st.warning("⚠️ Image 'dent.jpg' introuvable dans le dossier GitHub. Veuillez charger une radio manuellement.")
+        st.stop() # Arrête l'exécution pour éviter l'erreur
+
+# La suite du code continue ici...
+img_gray = preprocess_image(raw_img)
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="IA Expertise Dentaire", layout="wide")
@@ -64,33 +84,4 @@ if uploaded_file:
         fig.update_layout(template="plotly_dark", height=350, yaxis=dict(range=[0, 1.5]))
         st.plotly_chart(fig, use_container_width=True)
 
-    # 4. LE BOUTON MAGIQUE
-    st.divider()
-    if st.button("✨ LANCER LE DIAGNOSTIC MAGIQUE"):
-        with st.spinner('Analyse IA en cours...'):
-            time.sleep(1.5) # Effet de calcul
-            
-            h_min = np.min(H_values)
-            h_apex = H_values[-1]
-
-            if h_apex < 0.45:
-                st.snow() # Alerte visuelle
-                st.error(f"### 🚨 PATHOLOGIE DÉTECTÉE (H={h_apex:.2f})")
-                st.write("L'IA confirme une destruction osseuse à l'apex. Le traitement actuel ne protège plus la dent.")
-            elif h_min < 0.90:
-                st.warning(f"### ⚠️ ÉTANCHÉITÉ DOUTEUSE (H_min={h_min:.2f})")
-                st.write("Le scellage présente des faiblesses. Une surveillance est nécessaire.")
-            else:
-                st.balloons() # Succès
-                st.success(f"### ✅ ÉTANCHÉITÉ VALIDÉE (H={h_min:.2f})")
-                st.write("Le traitement est parfaitement hermétique. L'os est sain.")
-
-    # 5. Rapport Technique (Optionnel)
-    with st.expander("Consulter les données brutes"):
-        st.write(pd.DataFrame({
-            "Métrique": ["H Minimal", "H Apex"],
-            "Valeur": [f"{np.min(H_values):.2f}", f"{H_values[-1]:.2f}"]
-        }))
-
-else:
-    st.info("En attente du fichier 'dent.jpg' pour l'expertise.")
+   
