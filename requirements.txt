@@ -1,8 +1,6 @@
 streamlit
-opencv-python-headless
 numpy
-plotly
-scikit-image
-scipy
-Pillow
 pandas
+scipy
+plotly
+# Ajoute les autres selon ton code
