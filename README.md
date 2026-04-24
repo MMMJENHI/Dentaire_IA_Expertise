@@ -3,7 +3,7 @@ ondodontite
 
 # 🦷 Expertise IA Dentaire
 
-[![App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](TON_LIEN_HUGGING_FACE_ICI)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](https://moto-ia.streamlit.app)
 
 ### 🚀 Exécution Rapide
 Clique sur le badge "Streamlit" ci-dessus pour lancer l'analyse magique directement dans ton navigateur.
