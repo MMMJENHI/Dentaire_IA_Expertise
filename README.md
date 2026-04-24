@@ -1,5 +1,12 @@
 # Dentaire_IA_Expertise
 ondodontite
+
+# 🦷 Expertise IA Dentaire
+
+[![App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](TON_LIEN_HUGGING_FACE_ICI)
+
+### 🚀 Exécution Rapide
+Clique sur le badge "Streamlit" ci-dessus pour lancer l'analyse magique directement dans ton navigateur.
 # 🦷 Dentaire IA : Analyse du Tiers Apical
 
 Ce projet utilise l'Intelligence Artificielle et le traitement d'image pour assister les dentistes dans le diagnostic des pathologies apicales (Dent 16).
