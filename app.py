@@ -78,7 +78,7 @@ if raw_img is not None:
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
         
         # 1. Dessin du Tiers Apical (Ligne Cyan)
-        cv2.line(img_visu, (x_c, y_tiers_apical), (x_c, y_apex), (255, 0, 0), 8)
+        cv2.line(img_visu, (x_c, y_tiers_apical), (x_c, y_apex), (0, 255, 255), 8)
         
         # 2. Dessin de l'Apex (Cercle Rouge)
         # Si pathologie détectée, le cercle est plus gros
