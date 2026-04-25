@@ -1,13 +1,13 @@
 # 🦷 Expertise IA Dentaire (Analyse Directe)
 
 # 🦷 Expertise IA Dentaire (Dent 16)
+
 > **Cliquez sur le lien ci-dessous pour lancer l'expertise réelle :**
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](https://github.com/mmmjenhi/dentaire_ia_expertise.streamlit.app)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](https://expertise-dentaire-ia.streamlit.app)
 
 ### 🚀 Exécution Rapide
-[👉 CLIQUEZ ICI POUR LANCER L'ANALYSE MAGIQUE]https://https://github.com/mmmjenhi/dentaire_ia_expertise.streamlit.app)
----
+[👉 CLIQUEZ ICI POUR LANCER L'ANALYSE MAGIQUE](https://expertise-dentaire-ia.streamlit.app)
 
 
 ## 📋 Présentation du Projet
