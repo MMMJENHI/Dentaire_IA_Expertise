@@ -1,31 +1,25 @@
 import streamlit as st
-import numpy as np
-import time
+from PIL import Image
+import os
 
-st.title("🏍️ Diagnostic Moto IA - Système Expert")
+# --- INTERFACE DENTAIRE ---
+st.title("🦷 Expertise IA : Analyse de la Dent 16")
 
-# Simulation de chargement de données (Vibrations ou Image)
-data_file = st.file_uploader("Charger les données capteurs (Vibrations)", type=["csv", "wav", "jpg"])
+# Chargeur de fichier (Navigateur)
+uploaded_file = st.file_uploader("Charger une radiographie", type=["jpg", "png", "jpeg"])
 
-if data_file:
-    # --- CALCULS TECHNIQUES ---
-    # Ici, tu insères tes algorithmes (FFT, PSVA, ou Filtres)
-    score_usure = 0.85  # Exemple de valeur calculée
-    
-    # --- LE BOUTON MAGIQUE MOTO ---
-    st.divider()
-    if st.button("🚀 LANCER LE SCAN MÉCANIQUE"):
-        with st.spinner('Analyse des fréquences moteur...'):
-            time.sleep(2) # Effet d'analyse
-            
-            if score_usure > 0.80:
-                st.balloons()
-                st.success(f"✅ MOTEUR SAIN (Indice de confiance : {score_usure:.2f})")
-                st.write("Aucune anomalie harmonique détectée. La lubrification et le calage sont optimaux.")
-            else:
-                st.snow()
-                st.error(f"🚨 ANOMALIE DÉTECTÉE (Indice : {score_usure:.2f})")
-                st.write("Alerte : Vibrations anormales dans le carter moteur. Vérifiez la chaîne de distribution.")
+if uploaded_file is not None:
+    # Si tu glisses une image dans le navigateur
+    raw_img = Image.open(uploaded_file)
+    st.success("✅ Image chargée depuis votre ordinateur.")
+else:
+    # MODE GITHUB : Cherche 'dent.jpg' dans ton dépôt GitHub
+    if os.path.exists("dent.jpg"):
+        raw_img = Image.open("dent.jpg")
+        st.info("💡 Mode Démo : Image 'dent.jpg' chargée depuis GitHub.")
+    else:
+        st.warning("⚠️ En attente d'image. Veuillez glisser 'dent.jpg' ici ou l'ajouter sur GitHub.")
+        st.stop()
 
-# --- LIEN VERS LE DÉPLOIEMENT ---
-st.sidebar.info("Projet Master - Déploiement Cloud via Streamlit")
+# --- LA SUITE : APPEL DE TON ANALYSE H ---
+# img_gray = preprocess_image(raw_img) ...
