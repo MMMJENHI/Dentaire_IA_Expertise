@@ -2,100 +2,85 @@ import streamlit as st
 import requests
 import numpy as np
 import cv2
+import pandas as pd
 import plotly.graph_objects as go
 from PIL import Image
 from io import BytesIO
 
-# Configuration Pro
-st.set_page_config(page_title="IA Dentaire - Analyse Universelle", layout="wide")
+# Configuration de la page
+st.set_page_config(page_title="Rapport d'Expertise IA Dentaire", layout="wide")
 
-st.title("🦷 Expertise IA Dentaire : Système d'Analyse Multimédia")
-st.write("Importez une radio depuis n'importe quelle source pour lancer l'expertise densitométrique.")
+st.title("🦷 Système Expert : Analyse Densitométrique & Rapport")
+st.write("Analyse automatisée du tiers apical pour la Dent 16.")
 
-# --- BARRE LATÉRALE : SYSTÈME D'IMPORTATION ---
-st.sidebar.header("📁 Sources de Données")
+# --- CHARGEMENT ---
+url_dent = "https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg"
 
-# Choix de la méthode d'importation
-option = st.sidebar.selectbox(
-    "Comment voulez-vous importer l'image ?",
-    ("Depuis mon PC (Local)", "Depuis GitHub (Raw Link)", "Lien Web (URL direct)")
-)
+@st.cache_data
+def load_img(url):
+    try:
+        response = requests.get(url)
+        return np.array(Image.open(BytesIO(response.content)).convert('L'))
+    except: return None
 
-img_array = None
+img_array = load_img(url_dent)
 
-# MÉTHODE 1 : DEPUIS LE PC (Sécurité maximale si internet coupe)
-if option == "Depuis mon PC (Local)":
-    uploaded_file = st.sidebar.file_uploader("Choisir une radio...", type=['jpg', 'jpeg', 'png'])
-    if uploaded_file is not None:
-        img_array = np.array(Image.open(uploaded_file).convert('L'))
-        st.sidebar.success("✅ Image locale prête.")
-
-# MÉTHODE 2 : DEPUIS GITHUB
-elif option == "Depuis GitHub (Raw Link)":
-    github_url = st.sidebar.text_input("URL Raw de l'image sur GitHub :", 
-                                      "https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
-    if github_url:
-        try:
-            response = requests.get(github_url)
-            img_array = np.array(Image.open(BytesIO(response.content)).convert('L'))
-            st.sidebar.success("✅ Image GitHub connectée.")
-        except:
-            st.sidebar.error("❌ Impossible de lire ce lien GitHub.")
-
-# MÉTHODE 3 : LIEN WEB GÉNÉRIQUE
-else:
-    web_url = st.sidebar.text_input("Entrez l'URL directe de l'image (http...) :")
-    if web_url:
-        try:
-            response = requests.get(web_url)
-            img_array = np.array(Image.open(BytesIO(response.content)).convert('L'))
-            st.sidebar.success("✅ Image Web récupérée.")
-        except:
-            st.sidebar.error("❌ Lien invalide ou protégé.")
-
-# --- ANALYSE ET EXPERTISE ---
 if img_array is not None:
-    # 1. Contrôles Interactifs
-    st.sidebar.divider()
-    st.sidebar.header("⚙️ Paramètres du Cercle")
+    # --- BARRE LATÉRALE ---
+    st.sidebar.header("⚙️ Paramètres d'Analyse")
     h, w = img_array.shape
-    pos_y = st.sidebar.slider("Position Y (Verticale)", 0, h, int(h * 0.75))
-    pos_x = st.sidebar.slider("Position X (Horizontale)", 0, w, int(w * 0.5))
-    rayon = st.sidebar.slider("Rayon d'analyse", 10, 150, 50)
+    pos_y = st.sidebar.slider("Position Verticale", 0, h, int(h * 0.75))
+    pos_x = st.sidebar.slider("Position Horizontale", 0, w, int(w * 0.5))
+    rayon = st.sidebar.slider("Rayon de la zone", 20, 150, 60)
 
-    # 2. Visualisation avec Cercle Rouge
+    # --- TRAITEMENT ---
     img_rgb = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
-    overlay = img_rgb.copy()
-    cv2.circle(overlay, (pos_x, pos_y), rayon, (255, 0, 0), -1)
-    img_final = cv2.addWeighted(overlay, 0.3, img_rgb, 0.7, 0)
-    cv2.circle(img_final, (pos_x, pos_y), rayon, (255, 0, 0), 3)
+    cv2.circle(img_rgb, (pos_x, pos_y), rayon, (255, 0, 0), 3) # Cercle rouge
+    
+    # Extraction des données pour le graphique
+    y_start, y_end = max(0, pos_y-rayon), min(h, pos_y+rayon)
+    profile = img_array[y_start:y_end, pos_x] / 255.0
+    h_final = np.mean(profile)
 
-    col1, col2 = st.columns(2)
+    # --- DISPOSITION ---
+    col1, col2 = st.columns([1, 1])
+
     with col1:
-        st.subheader("🔍 Radio et Zone d'Expertise")
-        st.image(img_final, use_container_width=True)
+        st.subheader("🔍 Localisation de la zone")
+        st.image(img_rgb, use_container_width=True)
 
     with col2:
-        st.subheader("📈 Courbe de Densité (H-Index)")
-        # Calcul du profil de densité sous le cercle
-        y_start, y_end = max(0, pos_y-rayon), min(h, pos_y+rayon)
-        profile = img_array[y_start:y_end, pos_x] / 255.0
-        
+        st.subheader("📈 Profil de Densité (H-Index)")
         fig = go.Figure()
-        fig.add_trace(go.Scatter(y=profile, mode='lines', line=dict(color='red', width=3)))
-        fig.add_hrect(y0=0.9, y1=1.0, fillcolor="green", opacity=0.2, annotation_text="ÉTANCHE")
-        fig.add_hrect(y0=0.0, y1=0.45, fillcolor="red", opacity=0.2, annotation_text="LÉSION")
-        fig.update_layout(yaxis_range=[0, 1], margin=dict(l=10, r=10, t=10, b=10))
+        fig.add_trace(go.Scatter(y=profile, mode='lines', line=dict(color='firebrick', width=4)))
+        fig.update_layout(height=400, yaxis_range=[0, 1], xaxis_title="Profondeur", yaxis_title="Intensité H")
         st.plotly_chart(fig, use_container_width=True)
 
-    # 3. Verdict Final
-    h_moyen = np.mean(profile)
+    # --- NOUVEAU : RAPPORT D'EXPERTISE AVEC TABLEAU ---
     st.divider()
-    st.metric("Indice H de la zone", f"{h_moyen:.2f}")
-    if h_moyen > 0.85:
-        st.success("✅ VERDICT : Obturation de qualité, étanchéité apicale confirmée.")
+    st.header("📋 Rapport d'Expertise Final")
+    
+    # Création des données du tableau
+    verdict = "ÉTANCHÉITÉ VALIDÉE" if h_final > 0.85 else "SURVEILLANCE REQUISE"
+    statut = "✅ Conforme" if h_final > 0.85 else "⚠️ Alerte"
+    
+    data = {
+        "Paramètre d'Expertise": ["Indice H (Moyen)", "Zone d'Analyse (Y)", "Rayon d'Exploration", "Diagnostic Final"],
+        "Valeur Mesurée": [f"{h_final:.2f}", f"{pos_y} px", f"{rayon} px", verdict],
+        "Statut": [statut, "Inclus", "Optimal", statut]
+    }
+    
+    df = pd.DataFrame(data)
+    
+    # Affichage du tableau stylisé
+    st.table(df)
+
+    # Conclusion dynamique
+    if h_final > 0.85:
+        st.success(f"**Conclusion de l'Expert :** La densité au tiers apical (H={h_final:.2f}) indique une obturation hermétique. Le risque de réinfection est jugé très faible.")
+        st.balloons()
     else:
-        st.warning("⚠️ VERDICT : Densité insuffisante, risque d'échec endodontique.")
+        st.warning(f"**Conclusion de l'Expert :** La densité mesurée (H={h_final:.2f}) est inférieure au seuil critique. Une infiltration ou un vide canalaire est suspecté.")
 
 else:
-    st.info("💡 Sélectionnez une source d'image dans le menu à gauche pour commencer l'expertise.")
+    st.error("Impossible de charger les données depuis GitHub.")
