@@ -2,24 +2,24 @@ import streamlit as st
 from PIL import Image
 import os
 
-# --- INTERFACE DENTAIRE ---
-st.title("🦷 Expertise IA : Analyse de la Dent 16")
+# --- TITRE ---
+st.title("🦷 Expertise IA Automatique (Mode GitHub)")
 
-# Chargeur de fichier (Navigateur)
-uploaded_file = st.file_uploader("Charger une radiographie", type=["jpg", "png", "jpeg"])
+# 1. DEFINIR LE NOM DU FICHIER SUR GITHUB
+nom_fichier_github = "dent.jpg"
 
-if uploaded_file is not None:
-    # Si tu glisses une image dans le navigateur
-    raw_img = Image.open(uploaded_file)
-    st.success("✅ Image chargée depuis votre ordinateur.")
+# 2. CHARGEMENT AUTOMATIQUE (SANS PASSER PAR LE BUREAU)
+if os.path.exists(nom_fichier_github):
+    raw_img = Image.open(nom_fichier_github)
+    st.success(f"✅ Analyse en cours : Fichier '{nom_fichier_github}' détecté sur GitHub.")
+    
+    # Affichage de l'image pour preuve
+    st.image(raw_img, caption="Radio chargée depuis le dépôt GitHub", width=400)
 else:
-    # MODE GITHUB : Cherche 'dent.jpg' dans ton dépôt GitHub
-    if os.path.exists("dent.jpg"):
-        raw_img = Image.open("dent.jpg")
-        st.info("💡 Mode Démo : Image 'dent.jpg' chargée depuis GitHub.")
-    else:
-        st.warning("⚠️ En attente d'image. Veuillez glisser 'dent.jpg' ici ou l'ajouter sur GitHub.")
-        st.stop()
+    st.error(f"❌ Erreur : Le fichier '{nom_fichier_github}' est absent de ton GitHub !")
+    st.info("Aide : Clique sur 'Add file' sur GitHub et glisse ton image 'dent.jpg' dedans.")
+    st.stop()
 
-# --- LA SUITE : APPEL DE TON ANALYSE H ---
-# img_gray = preprocess_image(raw_img) ...
+# --- LA SUITE DE TON ANALYSE H ---
+# img_gray = preprocess_image(raw_img)
+# ... le reste du code ...
