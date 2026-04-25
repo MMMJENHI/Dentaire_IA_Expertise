@@ -6,6 +6,20 @@ import plotly.graph_objects as go
 from PIL import Image
 from io import BytesIO
 
+
+# Remplace la section de chargement par celle-ci
+st.sidebar.header("📁 Importer une Radio")
+
+uploaded_file = st.sidebar.file_get_directory_or_file("Choisir une image (JPG, PNG)...")
+
+if uploaded_file is not None:
+    # Charger l'image directement depuis ton ordinateur
+    img_array = np.array(Image.open(uploaded_file).convert('L'))
+    st.sidebar.success("✅ Image locale chargée !")
+else:
+    # Sinon, charger par défaut depuis GitHub
+    img_array = load_img(url_final)
+
 st.set_page_config(page_title="IA Dentaire - Multi-Chargement", layout="wide")
 
 st.title("🦷 Expertise IA Dentaire : Analyse Dynamique")
