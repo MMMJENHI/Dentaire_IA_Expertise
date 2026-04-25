@@ -105,20 +105,15 @@ if raw_img is not None:
                 status = "🚨 PATHOLOGIQUE (MALADE)"
                 conclusion = "Destruction osseuse péri-apicale (Lésion). Réintervention nécessaire."
                 st.snow()
-                st.error(f"### {status}")
             elif h_min < 0.90:
                 status = "⚠️ DOUTEUX (SURVEILLANCE)"
                 conclusion = "Défaut d'herméticité ou infiltration. Risque de réinfection."
-                st.warning(f"### {status}")
             else:
                 status = "✅ SAIN (CONFORME)"
                 conclusion = "Obturation parfaitement hermétique. Structure osseuse intègre."
                 st.balloons()
-                st.success(f"### {status}")
 
-            st.write(f"**Analyse technique :** {conclusion}")
-
-            # --- GÉNÉRATION DU FICHIER TXT ---
+            # --- CRÉATION DU TEXTE DU RAPPORT ---
             rapport_txt = f"""
             RAPPORT D'EXPERTISE IA DENTAIRE
             --------------------------------
@@ -131,31 +126,37 @@ if raw_img is not None:
             - Indice H Minimal : {h_min:.2f}
             
             EXPLICATION SCIENTIFIQUE :
-            1. SAIN (H > 0.90) : La densité correspond à une Gutta-percha compacte.
-            2. MALADE (H < 0.45) : Présence d'une zone radio-claire (noire) indiquant une infection.
+            1. SAIN (H > 0.90) : Densité correspondant à une Gutta-percha compacte.
+            2. MALADE (H < 0.45) : Zone radio-claire indiquant une infection/lésion.
             
-            CONCLUSION :
+            CONCLUSION CLINIQUE :
             {conclusion}
             
             Expertise générée par le système MMMJENHI IA.
+            --------------------------------
             """
-            
+
+            # --- AFFICHAGE DU FICHIER TXT À L'ÉCRAN ---
+            st.subheader("📄 Aperçu du Fichier Rapport (.txt)")
+            st.code(rapport_txt, language="text") # Affiche le contenu du fichier texte
+
+            # --- BOUTON DE TÉLÉCHARGEMENT ---
             st.download_button(
-                label="📥 Télécharger le Rapport (.txt)",
+                label="📥 Télécharger le Rapport d'Expertise",
                 data=rapport_txt,
-                file_name="expertise_dentaire_16.txt",
+                file_name=f"rapport_dent16_{time.strftime('%H%M')}.txt",
                 mime="text/plain"
             )
 
-    # --- EXPLICATION PÉDAGOGIQUE POUR LE JURY ---
+    # --- EXPLICATION PÉDAGOGIQUE ---
     st.divider()
     exp1, exp2 = st.columns(2)
     with exp1:
         st.info("### 🟢 Pourquoi un résultat SAIN ?")
-        st.write("Un résultat est jugé **Sain** quand la courbe reste proche de **0.90-1.0**. Cela signifie que le canal est totalement rempli de matière dense qui bloque les rayons X.")
+        st.write("La courbe est stable entre **0.90-1.0**. Le canal est hermétique.")
     with exp2:
         st.error("### 🔴 Pourquoi un résultat MALADE ?")
-        st.write("Un résultat est jugé **Malade** (Pathologique) quand la courbe chute brutalement en dessous de **0.45** à l'apex. Cela indique un vide ou une inflammation qui laisse passer les rayons X.")
+        st.write("La courbe chute sous **0.45** à l'apex. Indication de pathologie péri-apicale.")
 
 else:
     st.info("💡 En attente d'une radio pour lancer l'expertise.")
