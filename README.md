@@ -16,7 +16,7 @@
 
 > **Cliquez sur le lien ci-dessous (Lien de l'application réelle) :**
 
-### 👉 [LANCER L'ANALYSE DENTAIRE](https://github.com/MMMJENHI/Dentaire_IA_Expertise)
+### 👉 [LANCER L'ANALYSE DENTAIRE](Dentaire_IA_Expertise.streamlit.app/)
 ---
 
 ## 📋 Présentation du Projet
