@@ -1,7 +1,7 @@
-# 🦷 Expertise IA Dentaire : Analyse de la Variable H (Dent 16)
+# 🦷 Expertise IA Dentaire (Analyse Directe)
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](URL_DE_TON_APP_STREAMLIT)
-
+> **Cliquez ici pour lancer l'expertise immédiatement :**
+> ## [🚀 LANCER L'ANALYSE DE LA DENT 16](https://TON-APPLICATION.streamlit.app/)
 > **Projet de Master :** Système expert d'aide au diagnostic endodontique par analyse densitométrique automatisée.
 
 ---
