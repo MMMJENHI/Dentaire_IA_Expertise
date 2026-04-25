@@ -11,7 +11,7 @@ import pandas as pd
 import time
 
 # --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(page_title="IA Expertise Dentaire - Master", layout="wide")
+st.set_page_config(page_title="IA Expertise Dentaire - Diagnostic Apical", layout="wide")
 
 # --- FONCTIONS UTILES ---
 def preprocess_image(image):
@@ -29,7 +29,7 @@ def load_img_from_url(url):
 
 # --- INTERFACE ---
 st.title("🦷 Système Expert : Analyse de la Dent 16")
-st.markdown("Diagnostic automatisé du **Tiers Apical** et génération de rapport d'expertise.")
+st.markdown("Détection automatisée des **Pathologies Péri-apicales** par Variable H.")
 
 # --- BARRE LATÉRALE : CHARGEMENT ---
 st.sidebar.header("📁 Sources de Données")
@@ -39,20 +39,15 @@ option = st.sidebar.selectbox(
 )
 
 raw_img = None
-
 if option == "Depuis mon PC (Local)":
     uploaded_file = st.sidebar.file_uploader("Choisir une radio...", type=['jpg', 'jpeg', 'png'])
-    if uploaded_file:
-        raw_img = Image.open(uploaded_file)
+    if uploaded_file: raw_img = Image.open(uploaded_file)
 elif option == "Depuis GitHub (Raw Link)":
-    github_url = st.sidebar.text_input("URL Raw GitHub :", 
-                                      "https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
-    if github_url:
-        raw_img = load_img_from_url(github_url)
+    github_url = st.sidebar.text_input("URL Raw GitHub :", "https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
+    if github_url: raw_img = load_img_from_url(github_url)
 else:
     web_url = st.sidebar.text_input("Entrez l'URL de l'image :")
-    if web_url:
-        raw_img = load_img_from_url(web_url)
+    if web_url: raw_img = load_img_from_url(web_url)
 
 # --- ANALYSE ---
 if raw_img is not None:
@@ -64,7 +59,6 @@ if raw_img is not None:
     x_c = st.sidebar.slider("Position X (Axe Canal)", 0, w_img, int(w_img/2))
     y_haut = st.sidebar.slider("Haut du Canal (Y)", 0, h_img, int(h_img*0.2))
     y_apex = st.sidebar.slider("Fin de l'Apex (Y)", 0, h_img, int(h_img*0.9))
-
     y_tiers_apical = int(y_haut + (y_apex - y_haut) * 0.66)
 
     col1, col2 = st.columns([1, 1.2])
@@ -81,82 +75,61 @@ if raw_img is not None:
         signal = profile_line(img_gray, (y_tiers_apical, x_c), (y_apex, x_c), linewidth=5)
         w_len = 11 if len(signal) > 11 else (len(signal)-1 if len(signal)%2==0 else len(signal))
         if w_len < 3: w_len = 3
-        
         signal_clean = savgol_filter(signal, window_length=w_len, polyorder=2)
         H_values = signal_clean / 255.0 
 
+        # --- DÉTECTION DE LA CHUTE ---
+        h_apex_final = np.mean(H_values[-15:]) # Analyse des derniers pixels (Apex)
+
         fig = go.Figure()
         fig.add_trace(go.Scatter(y=H_values, mode='lines', line=dict(color='#00fbff', width=4), name="Profil H"))
-        fig.add_hline(y=0.90, line_dash="dash", line_color="red")
+        
+        # Coloration automatique si chute sous 0.45
+        if h_apex_final < 0.45:
+            fig.add_vrect(x0=len(H_values)-20, x1=len(H_values), 
+                          fillcolor="red", opacity=0.3, annotation_text="CHUTE APICALE")
+
+        fig.add_hline(y=0.90, line_dash="dash", line_color="green", annotation_text="Sain")
+        fig.add_hline(y=0.45, line_dash="dash", line_color="orange", annotation_text="Seuil Patho")
         fig.update_layout(template="plotly_dark", height=350, yaxis=dict(range=[0, 1.1]))
         st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
     
-    # --- LOGIQUE DE DIAGNOSTIC ET RAPPORT ---
-    if st.button("✨ LANCER LE DIAGNOSTIC ET GÉNÉRER LE RAPPORT"):
-        with st.spinner('Analyse IA en cours...'):
-            time.sleep(1.2)
+    if st.button("✨ LANCER LE DIAGNOSTIC DÉTAILLÉ"):
+        with st.spinner('Analyse des tissus péri-apicaux...'):
+            time.sleep(1)
             h_min = np.min(H_values)
-            h_apex = H_values[-1]
             
-            # Détermination de l'état
-            if h_apex < 0.45:
-                status = "🚨 PATHOLOGIQUE (MALADE)"
-                conclusion = "Destruction osseuse péri-apicale (Lésion). Réintervention nécessaire."
-                st.snow()
-            elif h_min < 0.90:
-                status = "⚠️ DOUTEUX (SURVEILLANCE)"
-                conclusion = "Défaut d'herméticité ou infiltration. Risque de réinfection."
+            if h_apex_final < 0.45:
+                status = "🚨 PATHOLOGIQUE (LÉSION DÉTECTÉE)"
+                conclusion = "Chute brutale de la Variable H à l'apex (< 0.45). Indication de pathologie péri-apicale."
+                st.error(f"### {status}")
             else:
                 status = "✅ SAIN (CONFORME)"
-                conclusion = "Obturation parfaitement hermétique. Structure osseuse intègre."
-                st.balloons()
+                conclusion = "Densité stable à l'apex. Absence de signe radiologique de lésion."
+                st.success(f"### {status}")
 
-            # --- CRÉATION DU TEXTE DU RAPPORT ---
+            # --- RAPPORT TEXTE ---
             rapport_txt = f"""
-            RAPPORT D'EXPERTISE IA DENTAIRE
+            RAPPORT D'EXPERTISE DENTAIRE
             --------------------------------
-            Date de l'analyse : {time.strftime("%d/%m/%Y %H:%M")}
-            Cible : Dent 16 (Tiers Apical)
-            
-            RESULTATS :
-            - Statut : {status}
-            - Indice H Apex : {h_apex:.2f}
-            - Indice H Minimal : {h_min:.2f}
-            
-            EXPLICATION SCIENTIFIQUE :
-            1. SAIN (H > 0.90) : Densité correspondant à une Gutta-percha compacte.
-            2. MALADE (H < 0.45) : Zone radio-claire indiquant une infection/lésion.
-            
-            CONCLUSION CLINIQUE :
-            {conclusion}
-            
-            Expertise générée par le système MMMJENHI IA.
-            --------------------------------
+            Status : {status}
+            H Apex Final : {h_apex_final:.2f}
+            Conclusion : {conclusion}
             """
+            st.code(rapport_txt)
+            st.download_button("📥 Rapport .txt", rapport_txt, "expertise.txt")
 
-            # --- AFFICHAGE DU FICHIER TXT À L'ÉCRAN ---
-            st.subheader("📄 Aperçu du Fichier Rapport (.txt)")
-            st.code(rapport_txt, language="text") # Affiche le contenu du fichier texte
-
-            # --- BOUTON DE TÉLÉCHARGEMENT ---
-            st.download_button(
-                label="📥 Télécharger le Rapport d'Expertise",
-                data=rapport_txt,
-                file_name=f"rapport_dent16_{time.strftime('%H%M')}.txt",
-                mime="text/plain"
-            )
-
-    # --- EXPLICATION PÉDAGOGIQUE ---
-    st.divider()
-    exp1, exp2 = st.columns(2)
-    with exp1:
-        st.info("### 🟢 Pourquoi un résultat SAIN ?")
-        st.write("La courbe est stable entre **0.90-1.0**. Le canal est hermétique.")
-    with exp2:
-        st.error("### 🔴 Pourquoi un résultat MALADE ?")
-        st.write("La courbe chute sous **0.45** à l'apex. Indication de pathologie péri-apicale.")
+    # --- COURS / EXPLICATION POUR LE JURY ---
+    st.info("### 📘 Note Scientifique sur la Chute à l'Apex")
+    st.markdown("""
+    Une **chute sous 0.45** (zone radio-claire) à l'extrémité de la courbe indique que le faisceau de rayons X ne rencontre plus de matière dense. 
+    En endodontie, cela traduit mathématiquement :
+    1.  **Une inflammation péri-apicale** (tissus mous à la place de l'os).
+    2.  **Un kyste ou granulome** (cavité remplie de liquide/tissus).
+    3.  **Une résorption osseuse**.
+    """)
 
 else:
-    st.info("💡 En attente d'une radio pour lancer l'expertise.")
+    st.info("💡 En attente d'une radio.")
