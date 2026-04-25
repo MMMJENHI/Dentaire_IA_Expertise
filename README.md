@@ -1,14 +1,11 @@
 # 🦷 Expertise IA Dentaire (Analyse Directe)
 
-> **Cliquez ici pour lancer l'expertise immédiatement :**
-> ## [🚀 LANCER L'ANALYSE DE LA DENT 16](https://TON-APPLICATION.streamlit.app/)
-> **Projet de Master :** Système expert d'aide au diagnostic endodontique par analyse densitométrique automatisée.
-
----
-
-## 🚀 Accès Direct à l'Expertise
 # 🦷 Expertise IA Dentaire (Analyse Directe)
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](https://dentaire-ia-expertise-mmmjenhi.streamlit.app/)
+
+### 🚀 Exécution Rapide
+[👉 CLIQUEZ ICI POUR LANCER L'ANALYSE](https://dentaire-ia-expertise-mmmjenhi.streamlit.app/)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](https://github.com/MMMJENHI/Dentaire_IA_Expertise.streamlit.app/)
 
 ### 🚀 Exécution Rapide
