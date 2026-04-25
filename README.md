@@ -7,9 +7,12 @@
 ---
 
 ## 🚀 Accès Direct à l'Expertise
-Pour tester le système immédiatement sans installation, cliquez sur le bouton ci-dessous :  
-### 👉 [LANCER L'ANALYSE MAGIQUE EN LIGNE](URL_DE_TON_APP_STREAMLIT)
+# 🦷 Expertise IA Dentaire (Analyse Directe)
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](https://dentaire-ia-expertise-mmmjenhi.streamlit.app/)
+
+### 🚀 Exécution Rapide
+[👉 CLIQUEZ ICI POUR LANCER L'ANALYSE](https://dentaire-ia-expertise-mmmjenhi.streamlit.app/)
 ---
 
 ## 📋 Présentation du Projet
