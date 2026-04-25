@@ -7,6 +7,16 @@ import plotly.graph_objects as go
 from PIL import Image
 from io import BytesIO
 
+
+
+    response = requests.get(github_url, timeout=5)
+    if response.status_code == 200:
+        img_array = np.array(Image.open(BytesIO(response.content)).convert('L'))
+    else:
+        st.sidebar.error("GitHub refuse l'accès (Vérifiez si le dépôt est Public)")
+except:
+    st.sidebar.error("Lien invalide ou problème de connexion")
+
 # Configuration de la page
 st.set_page_config(page_title="Rapport d'Expertise IA Dentaire", layout="wide")
 
