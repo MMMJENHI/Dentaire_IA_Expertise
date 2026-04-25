@@ -1,3 +1,10 @@
+
+ [🚀 LANCER L'ANALYSE DE LA DENT 16](https://TON-APPLICATION.streamlit.app/)
+
+---
+# 🦷 Expertise IA Dentaire (Analyse Directe)
+
+> **Cliquez ici pour lancer l'expertise immédiatement :**
 # Dentaire_IA_Expertise
 ondodontite
 
