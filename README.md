@@ -12,7 +12,11 @@
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](https://github.com/MMMJENHI/Dentaire_IA_Expertise.streamlit.app/)
 
 ### 🚀 Exécution Rapide
-[👉 CLIQUEZ ICI POUR LANCER L'ANALYSE](https://github.com/MMMJENHI/Dentaire_IA_Expertise.streamlit.app/)
+# 🦷 Expertise IA Dentaire (Dent 16)
+
+> **Cliquez sur le lien ci-dessous (Lien de l'application réelle) :**
+
+### 👉 [LANCER L'ANALYSE DENTAIRE](https://github.com/MMMJENHI/Dentaire_IA_Expertise)
 ---
 
 ## 📋 Présentation du Projet
