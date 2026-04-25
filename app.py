@@ -1,73 +1,67 @@
 import streamlit as st
 import requests
-from PIL import Image, ImageOps
-from io import BytesIO
 import numpy as np
 import cv2
+import plotly.graph_objects as go
+from PIL import Image
+from io import BytesIO
 
-# Configuration de la page
-st.set_page_config(page_title="Expertise IA Dentaire", page_icon="🦷")
+st.set_page_config(page_title="Expertise Dentaire IA", layout="wide")
 
-st.title("🦷 Expertise IA Dentaire - Dent 16")
-st.write("Analyse densitométrique automatisée pour l'aide au diagnostic endodontique.")
+st.title("🦷 Système Expert : Analyse de la Dent 16")
+st.write("Analyse densitométrique du tiers apical pour diagnostic endodontique.")
 
-# 1. URL de l'image sur GitHub
-# Assurez-vous que le nom du fichier est exactement "dent.jpg" sur votre dépôt
+# 1. Chargement de l'image via GitHub
 url_dent = "https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg"
 
-# 2. Fonction de chargement de l'image
 @st.cache_data
-def load_image_from_url(url):
-    try:
-        response = requests.get(url)
-        img = Image.open(BytesIO(response.content))
-        return img
-    except:
-        return None
+def load_data(url):
+    response = requests.get(url)
+    img = Image.open(BytesIO(response.content)).convert('L')
+    return np.array(img)
 
-# 3. Exécution du chargement
-image = load_image_from_url(url_dent)
-
-if image is not None:
+try:
+    img_array = load_data(url_dent)
     st.success("✅ Image chargée avec succès depuis GitHub !")
-    
-    # Affichage de l'image originale
-    col1, col2 = st.columns(2)
-    
+
+    col1, col2 = st.columns([1, 1])
+
     with col1:
-        st.subheader("Radio Originale")
-        st.image(image, use_column_width=True)
+        st.subheader("🔍 Localisation Tiers Apical")
+        # Simuler une zone d'analyse (le tiers apical)
+        h, w = img_array.shape
+        start_row, end_row = int(h*0.66), h
+        roi = img_array[start_row:end_row, w//2-20:w//2+20]
+        
+        # Dessiner un rectangle sur l'image pour montrer la zone analysée
+        display_img = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
+        cv2.rectangle(display_img, (w//2-20, start_row), (w//2+20, end_row), (255, 0, 0), 5)
+        st.image(display_img, caption="Zone d'analyse (Tiers Apical)", use_column_width=True)
 
-    # 4. Prétraitement (Exemple pour votre Master)
     with col2:
-        st.subheader("Analyse de Densité")
-        # Conversion en niveaux de gris pour le traitement
-        img_array = np.array(image.convert('L'))
-        # Application d'un filtre pour améliorer le contraste (CLAHE)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        enhanced_img = clahe.apply(img_array)
-        st.image(enhanced_img, use_column_width=True)
+        st.subheader("📈 Courbe Densitométrique")
+        # Extraction du profil de densité (la fameuse courbe)
+        profile = np.mean(roi, axis=1)
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=profile, mode='lines', name='Densité H', line=dict(color='firebrick', width=3)))
+        fig.update_layout(title="Profil de densité le long du canal", xaxis_title="Profondeur (pixels)", yaxis_title="Intensité (H)")
+        st.plotly_chart(fig, use_container_width=True)
 
-    # 5. Calcul de la Variable H (Simulation basée sur vos seuils)
+    # 2. PARTIE EXPERTISE (Le Verdict)
     st.divider()
-    st.header("📊 Résultats de l'Expertise")
+    h_final = np.max(profile) / 255.0  # Normalisation de la Variable H
     
-    # Ici, on simule un calcul sur le tiers apical
-    variable_h = 0.92  # Exemple de valeur calculée
-    
-    st.metric(label="Indice de densité relative (Variable H)", value=f"{variable_h:.2f}")
+    st.header(f"📊 Verdict IA : Indice H = {h_final:.2f}")
 
-    if variable_h > 0.90:
+    if h_final > 0.85:
         st.balloons()
-        st.success("✅ Étanchéité Parfaite : Validation confirmée.")
-    elif 0.45 <= variable_h <= 0.85:
-        st.warning("⚠️ Étanchéité Douteuse : Alerte de surveillance nécessaire.")
+        st.success("🟢 ÉTANCHÉITÉ PARFAITE : Aucune infiltration détectée.")
+    elif 0.50 <= h_final <= 0.85:
+        st.warning("🟡 ÉTANCHÉITÉ DOUTEUSE : Risque d'infiltration apicale. Surveillance conseillée.")
     else:
-        st.error("🚨 Diagnostic Critique : Réaction Apicale / Lésion détectée.")
+        st.error("🔴 DIAGNOSTIC CRITIQUE : Lésion péri-apicale ou vide canalaire détecté.")
 
-else:
-    st.error("❌ Impossible de charger l'image 'dent.jpg'.")
-    st.info("Vérifiez que le fichier est bien présent à la racine de votre dépôt GitHub MMMJENHI/Dentaire_IA_Expertise")
-
-# Pied de page
-st.caption("Projet de Master - Système expert d'aide au diagnostic - Développé par MMMJENHI")
+except Exception as e:
+    st.error(f"Erreur d'accès GitHub : {e}")
+    st.info("Vérifiez que MMMJENHI/Dentaire_IA_Expertise contient bien dent.jpg")
