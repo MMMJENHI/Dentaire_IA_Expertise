@@ -1,5 +1,8 @@
-![QR Code du Projet](./qrcode_github_project.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/qrcode_github_project.png" width="250" title="QR Code du Projet">
+</p>
 
+# 🦷 Expertise IA Dentaire (Dent 16)
 # 🦷 Expertise IA Dentaire (Dent 16)
 
 > **Cliquez sur le lien ci-dessous pour lancer l'expertise réelle :**
