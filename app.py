@@ -19,8 +19,9 @@ def generer_qr_statique(url):
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=2)
     qr.add_data(url)
     qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
     buf = BytesIO()
-    qr.make_image(fill_color="black", back_color="white").save(buf, format="PNG")
+    img.save(buf, format="PNG")
     return buf
 
 def preprocess_image(image):
@@ -29,7 +30,8 @@ def preprocess_image(image):
     return clahe.apply(img_array)
 
 # --- 3. INTERFACE DE CHARGEMENT ---
-st.title("🦷 Système Expert Interactif : Dent 16")
+st.title("🦷 Système Expert : Analyse de la Dent 16")
+st.markdown("Diagnostic automatisé du **Tiers Apical** et de l'herméticité.")
 
 st.sidebar.header("📁 Source de la Radio")
 source_radio = st.sidebar.radio(
@@ -56,23 +58,28 @@ else:
     try:
         raw_img = Image.open("dent.jpg")
     except FileNotFoundError:
-        st.warning("Fichier 'dent.jpg' introuvable sur GitHub.")
+        st.warning("Fichier 'dent.jpg' introuvable.")
         st.stop()
 
-# --- 4. TRAITEMENT ET ANALYSE INTERACTIVE ---
+# --- 4. TRAITEMENT ET ANALYSE ---
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
+    # Réglages Sidebar
     st.sidebar.markdown("---")
     st.sidebar.header("📍 Réglages de l'Expert")
     x_c = st.sidebar.slider("Position X (Centre Canal)", 0, w, int(w/2))
     y_haut = st.sidebar.slider("Haut du Canal (Y)", 0, h, int(h*0.2))
     y_apex = st.sidebar.slider("Position de l'Apex (Tache Rouge)", 0, h, int(h*0.8))
 
+    # QR Code Interactif
+    st.sidebar.markdown("---")
     url_app = "https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/"
-    st.sidebar.image(generer_qr_statique(url_app), caption="Expertise Mobile", width=130)
+    qr_img = generer_qr_statique(url_app)
+    st.sidebar.image(qr_img, caption="Expertise Mobile", width=150)
 
+    # Calcul du tiers apical
     y_tiers_apical = int(y_haut + (y_apex - y_haut) * 0.66)
 
     # --- 5. VISUALISATION ET COURBE ---
@@ -81,6 +88,7 @@ if raw_img is not None:
     with col1:
         st.subheader("🔎 Zone de Scan")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
+        # La ligne et la tache rouge se mettent à jour avec les sliders
         cv2.line(img_visu, (x_c, y_tiers_apical), (x_c, y_apex), (0, 255, 255), 10)
         cv2.circle(img_visu, (x_c, y_apex), 20, (255, 0, 0), -1) 
         st.image(img_visu, use_container_width=True)
@@ -102,7 +110,53 @@ if raw_img is not None:
         fig.update_layout(template="plotly_dark", height=350, yaxis=dict(range=[0, 1.1]), yaxis_title="Densité H")
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- 6. DIAGNOSTIC ET RAPPORT ---
+    # --- 6. DIAGNOSTIC ET RAPPORT .TXT ---
     st.divider()
     h_min = np.min(H_values)
-    h_apex = H_values[-1
+    h_apex = H_values[-1]
+
+    col_btn1, col_btn2 = st.columns(2)
+
+    with col_btn1:
+        if st.button("✨ LANCER LE DIAGNOSTIC MAGIQUE"):
+            with st.spinner('Analyse...'):
+                time.sleep(1) 
+                if h_apex < 0.45:
+                    st.snow()
+                    st.error(f"### 🚨 PATHOLOGIE DÉTECTÉE (H_apex={h_apex:.2f})")
+                elif h_min < 0.60:
+                    st.warning(f"### ⚠️ ÉTANCHÉITÉ DOUTEUSE (H_min={h_min:.2f})")
+                else:
+                    st.balloons()
+                    st.success(f"### ✅ ÉTANCHÉITÉ VALIDÉE (H_min={h_min:.2f})")
+
+    with col_btn2:
+        # Génération du fichier texte sans erreur de syntaxe
+        lignes_rapport = [
+            "RAPPORT D'EXPERTISE DENTAIRE",
+            "="*30,
+            f"Date : {time.strftime('%Y-%m-%d %H:%M')}",
+            f"Source : {source_radio}",
+            f"Position X : {x_c}",
+            f"Position Apex (Y) : {y_apex}",
+            f"Densite H a l'Apex : {h_apex:.4f}",
+            f"Densite H Minimum : {h_min:.4f}",
+            "-"*30,
+            f"RESULTAT : {'VALIDE' if h_apex >= 0.45 else 'ECHEC / PATHOLOGIE'}",
+            "="*30
+        ]
+        rapport_final = "\n".join(lignes_rapport)
+
+        st.download_button(
+            label="💾 Télécharger le Rapport (.txt)",
+            data=rapport_final,
+            file_name=f"expertise_dentaire_{int(time.time())}.txt",
+            mime="text/plain"
+        )
+
+    # --- 7. RAPPORT TECHNIQUE ---
+    with st.expander("📊 Rapport de mesures"):
+        st.table(pd.DataFrame({
+            "Indicateur": ["H Minimum", "H Apex", "Seuil Critique"],
+            "Valeur": [f"{h_min:.2f}", f"{h_apex:.2f}", "0.45"]
+        }))
