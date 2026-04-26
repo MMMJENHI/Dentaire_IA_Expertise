@@ -13,16 +13,22 @@ from io import BytesIO
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="CAD IA Dentaire Expert", layout="wide")
 
-# --- 2. FONCTIONS ---
+# --- 2. FONCTIONS TECHNIQUES ---
 def preprocess_image(image):
     img_array = np.array(image.convert('L'))
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
     return clahe.apply(img_array)
 
-# --- 3. CHARGEMENT ---
-st.title("🦷 CAD System : Visualisation Expert (Dent 16)")
+def smooth(sig):
+    if len(sig) > 5:
+        w_len = 11 if len(sig) > 11 else (len(sig)-1 if len(sig)%2==0 else len(sig))
+        return savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
+    return sig / 255.0
 
-source_radio = st.sidebar.radio("📁 Source :", ("Local", "URL/GitHub", "Démo"))
+# --- 3. CHARGEMENT DE LA RADIO ---
+st.title("🦷 CAD System : Expertise Double Échelle (Dent 16)")
+
+source_radio = st.sidebar.radio("📁 Source de la Radio :", ("Local", "URL/GitHub", "Démo"))
 
 raw_img = None
 if source_radio == "Local":
@@ -34,91 +40,119 @@ elif source_radio == "URL/GitHub":
         try:
             res = requests.get(url_input, timeout=5)
             raw_img = Image.open(BytesIO(res.content))
-        except: st.error("Lien invalide")
+        except: st.error("Lien invalide ou erreur réseau")
 else:
     try:
         raw_img = Image.open("dent.jpg")
     except:
-        st.error("Fichier dent.jpg manquant")
+        st.error("Fichier 'dent.jpg' absent de votre GitHub")
         st.stop()
 
-# --- 4. ANALYSE EXPERTE ---
+# --- 4. TRAITEMENT ET ANALYSE ---
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
-    # --- BARRE LATÉRALE ---
-    st.sidebar.header("📍 Contrôles CAD")
+    # SIDEBAR : CONTRÔLES CAD
+    st.sidebar.header("📍 Paramètres CAD")
     
-    # QR CODE API (Méthode stable Hugging Face/GitHub)
-    url_projet = "https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/"
-    qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_projet}"
-    st.sidebar.image(qr_api, caption="Lien Mobile")
+    # QR CODE VIA API (Plus stable sur GitHub)
+    url_app = "https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/"
+    qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
+    st.sidebar.image(qr_api, caption="Lien de l'application")
     st.sidebar.divider()
 
     x_c = st.sidebar.slider("Position X (Axe)", 0, w, int(w/2))
     y_haut = st.sidebar.slider("Haut Canal (Y)", 0, h, int(h*0.2))
     y_apex = st.sidebar.slider("Y_apex (Point Final)", 0, h, int(h*0.8))
 
+    # Sécurité : vérifier que l'apex est après le haut
+    if y_apex <= y_haut:
+        st.warning("⚠️ L'Apex doit être situé après le Haut du Canal.")
+        st.stop()
+
     # Calcul des zones
     y_tiers_debut = int(y_haut + (y_apex - y_haut) * 0.66)
     
-    # 1. Extraction Signal Global (Rouge)
+    # Extraction des signaux
     signal_global = profile_line(img_gray, (y_haut, x_c), (y_apex, x_c), linewidth=3)
-    # 2. Extraction Signal Tiers Apical (Cyan)
     signal_apical = profile_line(img_gray, (y_tiers_debut, x_c), (y_apex, x_c), linewidth=5)
-
-    def smooth(sig):
-        if len(sig) > 5:
-            w_len = 11 if len(sig) > 11 else (len(sig)-1 if len(sig)%2==0 else len(sig))
-            return savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
-        return sig / 255.0
 
     H_global = smooth(signal_global)
     H_apical = smooth(signal_apical)
     h_final = H_apical[-1]
 
-    # --- 5. VISUALISATION (ROUGE & CYAN) ---
+    # --- 5. VISUALISATION (DESSIN ROUGE & CYAN) ---
     col_img, col_graphs = st.columns([1, 1.5])
 
     with col_img:
         st.subheader("🔎 Visualisation CAD")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
         
-        # Trait ROUGE (Global) : Décalé de 10 pixels à gauche
+        # A. Trait ROUGE (Global) : Décalé à gauche
         cv2.line(img_visu, (x_c - 15, y_haut), (x_c - 15, y_apex), (255, 0, 0), 3)
         
-        # Trait CYAN (Tiers Apical) : Au centre, très épais
+        # B. Trait CYAN épais (Expertise) : Pile sur l'axe
         cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (255, 255, 0), 15)
         
-        # Point APEX (Blanc)
+        # C. Point Apex (Blanc)
         cv2.circle(img_visu, (x_c, y_apex), 15, (255, 255, 255), -1) 
         
-        st.image(img_visu, use_container_width=True)
+        st.image(img_visu, use_container_width=True, caption="Analyse : Rouge (Global) | Cyan (Tiers Apical)")
 
     with col_graphs:
-        # GRAPHIQUE 1 : ROUGE (GLOBAL)
-        st.subheader("📈 1. Profil Global (Axe Y)")
+        # GRAPHIQUE 1 : ROUGE (Échelle réelle en Pixels Y)
+        st.subheader("📈 1. Profil Global (Axe Y réel)")
         fig1 = go.Figure()
-        fig1.add_trace(go.Scatter(x=np.arange(y_haut, y_apex), y=H_global, name="Totalité", line=dict(color='red', width=3)))
+        fig1.add_trace(go.Scatter(
+            x=np.arange(y_haut, y_apex), 
+            y=H_global, 
+            name="Profil Total", 
+            line=dict(color='red', width=3)
+        ))
         fig1.update_layout(template="plotly_dark", height=250, margin=dict(t=10, b=10),
-                           xaxis_title="Position Y (Pixels)", yaxis_title="Densité H")
+                           xaxis_title="Position Verticale (Pixels Y)", yaxis_title="Densité H")
         st.plotly_chart(fig1, use_container_width=True)
 
-        # GRAPHIQUE 2 : CYAN (APICAL)
-        st.subheader("📈 2. Zoom Tiers Apical")
+        # GRAPHIQUE 2 : CYAN (Zoom Diagnostic)
+        st.subheader("📈 2. Tiers Apical (Zoom Expert)")
         fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(y=H_apical, name="Expertise", line=dict(color='cyan', width=5)))
-        # Seuil
-        fig2.add_shape(type="line", x0=0, y0=0.45, x1=len(H_apical), y1=0.45, line=dict(color="white", dash="dash"))
+        fig2.add_trace(go.Scatter(y=H_apical, name="Zone Critique", line=dict(color='cyan', width=5)))
+        # Seuil 0.45
+        fig2.add_shape(type="line", x0=0, y0=0.45, x1=len(H_apical), y1=0.45, 
+                       line=dict(color="white", dash="dash"))
         fig2.update_layout(template="plotly_dark", height=250, margin=dict(t=10, b=10),
-                           xaxis_title="Progression Apicale (%)", yaxis_title="Densité H")
+                           xaxis_title="Progression dans le Tiers Apical (%)", yaxis_title="Densité H")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. RAPPORT CAD ---
+    # --- 6. RAPPORT D'EXPERTISE CAD ---
     st.divider()
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
-    rapport_cad = f"RAPPORT CAD - DENT 16\nPROPRIÉTAIRE : Projet Master\nPOSITION : X={x_c} | Y={y_apex}\nVALEUR H : {h_final:.4f}\nDIAGNOSTIC : {statut}"
     
-    st.text_area("Bilan Expert", rapport_cad, height=150)
-    st.download_button("💾 Télécharger Rapport", rapport_cad, "Rapport_CAD.txt")
+    rapport_cad = f"""RAPPORT D'EXPERTISE DENTAIRE (CAD SYSTEM)
+------------------------------------------
+PROPRIÉTAIRE : Projet Master - Dent 16
+POSITION ANALYSÉE : X={x_c} | Y={y_apex}
+VALEUR H APEX MOYENNE : {h_final:.4f}
+SEUIL DE CONFORMITÉ : 0.45
+------------------------------------------
+DIAGNOSTIC FINAL : {statut}
+------------------------------------------
+LOGIQUE DES COULEURS :
+- ROUGE : Profil global de l'obturation (Pixels Y).
+- CYAN : Analyse du tiers apical (Herméticité).
+- POINT BLANC : Localisation de l'Apex cible.
+"""
+    st.text_area("Bilan Expert", rapport_cad, height=200)
+    
+    st.download_button(
+        label="💾 Télécharger le Rapport (.txt)",
+        data=rapport_cad,
+        file_name=f"Rapport_CAD_Dent16.txt",
+        mime="text/plain"
+    )
+
+    with st.expander("📊 Détails des mesures techniques"):
+        st.write(f"- Position X : {x_c}")
+        st.write(f"- Position Y (Apex) : {y_apex}")
+        st.write(f"- Densité H finale : {h_final:.4f}")
