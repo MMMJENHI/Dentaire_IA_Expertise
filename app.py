@@ -71,7 +71,7 @@ if raw_img is not None:
     st.sidebar.write("### 📲 Application Mobile")
     
     # Étape 'Combinaison' : Utilisation du lien court TinyURL
-    url_app = "https://tinyurl.com/ia-dent-16" 
+    url_app = "https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/"
     
     qr_img = generer_qr_statique(url_app)
     st.sidebar.image(qr_img, caption="Scanner pour l'expertise mobile", width=150)
