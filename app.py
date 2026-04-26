@@ -36,20 +36,28 @@ elif source_radio == "URL/GitHub":
             raw_img = Image.open(BytesIO(res.content))
         except: st.error("Lien invalide")
 else:
-    try: raw_img = Image.open("dent.jpg")
-    except: st.stop()
+    try:
+        raw_img = Image.open("dent.jpg")
+    except:
+        st.error("Fichier dent.jpg manquant sur GitHub")
+        st.stop()
 
 # --- 4. ANALYSE EXPERTE ---
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
-    # Réglages Sidebar (QR SUPPRIMÉ ICI)
+    # Réglages Sidebar (QR TOTALEMENT SUPPRIMÉ)
     st.sidebar.header("📍 Contrôles CAD")
-    x_c = st.sidebar.slider("Position X", 0, w, int(w/2))
-    y_haut = st.sidebar.slider("Haut Canal", 0, h, int(h*0.2))
+    x_c = st.sidebar.slider("Position X (Axe Canal)", 0, w, int(w/2))
+    
+    # HAUT CANAL Y : C'est le point de départ de l'obturation (entrée du canal)
+    y_haut = st.sidebar.slider("Haut Canal (Y)", 0, h, int(h*0.2))
+    
+    # Y_APEX : C'est la tache rouge (fin de la racine)
     y_apex = st.sidebar.slider("Y_apex (Tache Rouge)", 0, h, int(h*0.8))
 
+    # Calcul du segment d'analyse (Tiers apical)
     y_tiers = int(y_haut + (y_apex - y_haut) * 0.66)
 
     # Courbe de densité
@@ -66,9 +74,11 @@ if raw_img is not None:
     col1, col2 = st.columns(2)
     with col1:
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
+        # Ligne d'analyse (Cyan) entre le tiers et l'apex
         cv2.line(img_visu, (x_c, y_tiers), (x_c, y_apex), (0, 255, 255), 8)
+        # TACHE ROUGE (Apex)
         cv2.circle(img_visu, (x_c, y_apex), 20, (255, 0, 0), -1) 
-        st.image(img_visu, use_container_width=True, caption="Analyse CAD en cours")
+        st.image(img_visu, use_container_width=True, caption="Expertise CAD active")
 
     with col2:
         fig = go.Figure()
@@ -79,10 +89,8 @@ if raw_img is not None:
 
     # --- 5. GÉNÉRATION DU RAPPORT CAD ---
     st.divider()
-    
     statut = "✅ CONFORME" if h_apex >= 0.45 else "🚨 NON CONFORME"
     
-    # Formatage exact du rapport demandé
     rapport_cad = f"""RAPPORT D'EXPERTISE DENTAIRE (CAD SYSTEM)
 ------------------------------------------
 PROPRIÉTAIRE : Projet Master - Dent 16
@@ -92,17 +100,11 @@ SEUIL DE CONFORMITÉ : 0.45
 ------------------------------------------
 DIAGNOSTIC FINAL : {statut}
 ------------------------------------------
-COMMENTAIRES EXPERTS :
-- L'indice H mesure l'herméticité de l'obturation.
-- Une valeur < 0.45 indique une réaction apicale ou un vide.
-- Limites : Seuil dépendant du capteur et du matériau.
+INTERPRÉTATION CLINIQUE :
+- Indice H : Mesure l'étanchéité biologique.
+- Seuil 0.45 : Limite de réaction apicale.
+- Statut : {statut}
 """
 
-    st.text_area("Prévisualisation du Rapport CAD", rapport_cad, height=250)
-
-    st.download_button(
-        label="💾 Télécharger le Rapport (.txt)",
-        data=rapport_cad,
-        file_name=f"Rapport_CAD_Dent16.txt",
-        mime="text/plain"
-    )
+    st.text_area("Prévisualisation CAD", rapport_cad, height=220)
+    st.download_button("💾 Télécharger Rapport (.txt)", rapport_cad, "Rapport_CAD.txt")
