@@ -1,4 +1,4 @@
-# 🦷 Expertise IA Dentaire (Analyse Directe)
+![QR Code du Projet](./qrcode_github_project.png)
 
 # 🦷 Expertise IA Dentaire (Dent 16)
 
