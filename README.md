@@ -1,7 +1,8 @@
 # 🦷 IA Expertise Dentaire (Dent 16)
 
 ### 📲 Accès Direct Mobile
-![QR Code](qr_code.png)
+
+![QR Code Accès Mobile](qr_code.png)
 
 [Cliquez ici pour ouvrir l'application](https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/)
 **Projet : IA Expertise Apicale & Étanchéité**
