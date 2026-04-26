@@ -9,10 +9,12 @@ from skimage.measure import profile_line
 from scipy.signal import savgol_filter
 import time
 
-# --- CONFIGURATION ---
+# --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(page_title="Expertise Dentaire - Master", layout="wide")
 
+# --- FONCTIONS TECHNIQUES ---
 def preprocess_image(image):
+    """Amélioration du contraste pour une analyse précise"""
     img_array = np.array(image.convert('L'))
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
     return clahe.apply(img_array)
@@ -25,8 +27,9 @@ def load_img_from_url(url):
     except:
         return None
 
-# --- TITRE ---
-st.title("🦷 Système Expert : Diagnostic Synchrone du Tiers Apical")
+# --- INTERFACE UTILISATEUR ---
+st.title("🦷 Système Expert : Diagnostic Synchrone (Tiers Apical)")
+st.markdown("Analyse matricielle interactive de la densité radiculaire.")
 
 # --- BARRE LATÉRALE ---
 st.sidebar.header("📁 Importation")
@@ -49,65 +52,71 @@ if raw_img is not None:
 
     # --- SLIDERS : CONTRÔLE DYNAMIQUE ---
     st.sidebar.divider()
-    st.sidebar.header("📍 Paramètres de Segmentation")
-    x_input = st.sidebar.slider("Position X (Axe de la dent)", 0, w_img, int(w_img/2))
+    st.sidebar.header("📍 Segmentation")
+    x_input = st.sidebar.slider("Position X (Déplacer)", 0, w_img, int(w_img/2))
     y_top = st.sidebar.slider("Haut du Canal (Y)", 0, h_img, int(h_img*0.2))
     y_apex = st.sidebar.slider("Point Apex (Y)", 0, h_img, int(h_img*0.8))
 
     # --- CALCULS TECHNIQUES ---
-    # Définition du tiers apical (zone de diagnostic)
+    # Calcul du début du tiers apical (zone Cyan)
     y_start_tiers = int(y_top + (y_apex - y_top) * 0.66)
     
     # Prélèvement du signal H (Synchronisé sur x_input)
+    # On utilise une largeur de 10 pixels pour moyenner le canal
     signal = profile_line(img_gray, (y_start_tiers, x_input), (y_apex, x_input), linewidth=10)
     
     if len(signal) > 5:
-        # Lissage du signal
         w_len = 11 if len(signal) > 11 else (len(signal)-1 if len(signal)%2==0 else len(signal))
         signal_smooth = savgol_filter(signal, window_length=max(3, w_len), polyorder=2)
         H_values = signal_smooth / 255.0
-        # Diagnostic final basé sur la fin du trait (l'apex)
-        h_apex_final = np.mean(H_values[-10:]) 
+        h_apex_final = np.mean(H_values[-10:]) # Moyenne sur les derniers millimètres
     else:
-        H_values = np.array([0.0]); h_apex_final = 0.0
+        H_values = np.array([0.0])
+        h_apex_final = 0.0
 
     # --- AFFICHAGE ---
     col1, col2 = st.columns([1, 1.2])
 
     with col1:
-        st.subheader("🔎 Visualisation Temps-Réel")
-        # On recrée l'image RGB à chaque frame pour éviter les taches immobiles
+        st.subheader("🔎 Visualisation")
+        # On recrée l'image à chaque mouvement pour que la tache suive le trait
         img_rgb = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
         
-        # 1. Dessin du Tiers Apical (Cyan - Mobile sur x_input)
+        # 1. Dessin du Tiers Apical (Cyan)
         cv2.line(img_rgb, (x_input, y_start_tiers), (x_input, y_apex), (0, 255, 255), 10)
         
-        # 2. Dessin de la Tache (Point Apex - Synchronisée)
-        # Elle change de couleur selon h_apex_final
+        # 2. Dessin de la Tache Apex (Synchronisée sur x_input)
         color_status = (0, 255, 0) if h_apex_final >= 0.45 else (255, 0, 0)
         cv2.circle(img_rgb, (x_input, y_apex), 25, color_status, -1)
         
-        st.image(img_rgb, use_container_width=True, caption=f"Analyse sur X : {x_input}")
+        st.image(img_rgb, use_container_width=True, caption=f"Axe X : {x_input}")
 
     with col2:
-        st.subheader("📈 Courbe de Densité H")
+        st.subheader("📈 Profil de Densité H")
         fig = go.Figure()
-        fig.add_trace(go.Scatter(y=H_values, mode='lines', line=dict(color='#00fbff', width=5), name="Densité"))
-        
-        # Seuil critique
+        fig.add_trace(go.Scatter(y=H_values, mode='lines', line=dict(color='#00fbff', width=5)))
         fig.add_hline(y=0.45, line_dash="dash", line_color="red")
         fig.add_hrect(y0=0, y1=0.45, fillcolor="red", opacity=0.15)
-        
-        fig.update_layout(template="plotly_dark", height=400, yaxis_title="H", xaxis_title="Profondeur")
+        fig.update_layout(template="plotly_dark", height=400, yaxis_title="Densité H")
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- RAPPORT ---
+    # --- RAPPORT D'EXPERTISE ---
     st.divider()
     if st.button("🚀 EXÉCUTER LE DIAGNOSTIC"):
         status = "✅ CONFORME" if h_apex_final >= 0.45 else "🚨 PATHOLOGIQUE"
         st.write(f"### RÉSULTAT : {status}")
         
-        # Affichage du rapport technique
-        st.code(f"""
+        # Texte du rapport bien fermé pour éviter le SyntaxError
+        rapport_txt = f"""
         RAPPORT D'EXPERTISE DENTAIRE
-        --------------------------------
+        ----------------------------------
+        POSITION : X={x_input} | Y_apex={y_apex}
+        VALEUR H MOYENNE : {h_apex_final:.2f}
+        DIAGNOSTIC : {status}
+        ----------------------------------
+        """
+        st.code(rapport_txt)
+        st.download_button("📥 Télécharger Rapport", rapport_txt, file_name="expertise.txt")
+
+else:
+    st.info("💡 En attente du chargement d'une image sur le PC TOSHIBA...")
