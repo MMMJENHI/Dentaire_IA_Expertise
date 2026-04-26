@@ -3,5 +3,7 @@ opencv-python-headless
 numpy
 plotly
 scikit-image
-Pillow
+scipy
+pillow
 pandas
+qrcode
