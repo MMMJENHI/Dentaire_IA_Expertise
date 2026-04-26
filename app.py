@@ -1,122 +1,85 @@
 import streamlit as st
-import requests
 import numpy as np
 import cv2
 import plotly.graph_objects as go
 from PIL import Image
-from io import BytesIO
 from skimage.measure import profile_line
 from scipy.signal import savgol_filter
-import time
 
-# --- CONFIGURATION DE LA PAGE ---
+# --- CONFIGURATION RAPIDE ---
 st.set_page_config(page_title="Expertise Dentaire - Master", layout="wide")
 
-# --- FONCTIONS TECHNIQUES ---
 def preprocess_image(image):
-    """Amélioration du contraste pour une analyse précise"""
     img_array = np.array(image.convert('L'))
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
     return clahe.apply(img_array)
 
-@st.cache_data
-def load_img_from_url(url):
-    try:
-        response = requests.get(url, timeout=5)
-        return Image.open(BytesIO(response.content))
-    except:
-        return None
+# --- INTERFACE ---
+st.title("🦷 Diagnostic Synchrone (Optimisé)")
 
-# --- INTERFACE UTILISATEUR ---
-st.title("🦷 Système Expert : Diagnostic Synchrone (Tiers Apical)")
-st.markdown("Analyse matricielle interactive de la densité radiculaire.")
+if 'img_gray' not in st.session_state:
+    st.session_state.img_gray = None
 
-# --- BARRE LATÉRALE ---
-st.sidebar.header("📁 Importation")
-option = st.sidebar.selectbox("Source :", ("Depuis mon PC (Local)", "Lien GitHub (Raw)", "Lien Web"))
+# --- IMPORTATION ---
+uploaded_file = st.sidebar.file_uploader("Radio RVG...", type=['jpg', 'jpeg', 'png'])
+if uploaded_file:
+    raw_img = Image.open(uploaded_file)
+    # On stocke en session pour ne pas recalculer le CLAHE à chaque mouvement
+    if st.session_state.img_gray is None:
+        st.session_state.img_gray = preprocess_image(raw_img)
 
-raw_img = None
-if option == "Depuis mon PC (Local)":
-    uploaded_file = st.sidebar.file_uploader("Fichier...", type=['jpg', 'jpeg', 'png'])
-    if uploaded_file: raw_img = Image.open(uploaded_file)
-elif option == "Lien GitHub (Raw)":
-    github_url = st.sidebar.text_input("URL :", "https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
-    if github_url: raw_img = load_img_from_url(github_url)
-else:
-    web_url = st.sidebar.text_input("Lien direct :")
-    if web_url: raw_img = load_img_from_url(web_url)
-
-if raw_img is not None:
-    img_gray = preprocess_image(raw_img)
+if st.session_state.img_gray is not None:
+    img_gray = st.session_state.img_gray
     h_img, w_img = img_gray.shape
 
-    # --- SLIDERS : CONTRÔLE DYNAMIQUE ---
-    st.sidebar.divider()
-    st.sidebar.header("📍 Segmentation")
-    x_input = st.sidebar.slider("Position X (Déplacer)", 0, w_img, int(w_img/2))
-    y_top = st.sidebar.slider("Haut du Canal (Y)", 0, h_img, int(h_img*0.2))
-    y_apex = st.sidebar.slider("Point Apex (Y)", 0, h_img, int(h_img*0.8))
+    # --- SLIDERS ---
+    # L'option 'key' et le fait de ne pas avoir de callback lourd accélère Streamlit
+    x_input = st.sidebar.slider("Axe X", 0, w_img, int(w_img/2), key="x_slider")
+    y_top = st.sidebar.slider("Haut (Y)", 0, h_img, int(h_img*0.2))
+    y_apex = st.sidebar.slider("Apex (Y)", 0, h_img, int(h_img*0.8))
 
-    # --- CALCULS TECHNIQUES ---
-    # Calcul du début du tiers apical (zone Cyan)
+    # --- CALCULS INSTANTANÉS ---
     y_start_tiers = int(y_top + (y_apex - y_top) * 0.66)
     
-    # Prélèvement du signal H (Synchronisé sur x_input)
-    # On utilise une largeur de 10 pixels pour moyenner le canal
-    signal = profile_line(img_gray, (y_start_tiers, x_input), (y_apex, x_input), linewidth=10)
+    # On réduit le linewidth à 5 pour accélérer le prélèvement des pixels
+    signal = profile_line(img_gray, (y_start_tiers, x_input), (y_apex, x_input), linewidth=5)
     
-    if len(signal) > 5:
-        w_len = 11 if len(signal) > 11 else (len(signal)-1 if len(signal)%2==0 else len(signal))
-        signal_smooth = savgol_filter(signal, window_length=max(3, w_len), polyorder=2)
-        H_values = signal_smooth / 255.0
-        h_apex_final = np.mean(H_values[-10:]) # Moyenne sur les derniers millimètres
-    else:
-        H_values = np.array([0.0])
-        h_apex_final = 0.0
+    # Diagnostic rapide
+    h_apex_final = np.mean(signal[-10:]) / 255.0 if len(signal) > 10 else 0.0
 
-    # --- AFFICHAGE ---
+    # --- AFFICHAGE SYNCHRONISÉ ---
     col1, col2 = st.columns([1, 1.2])
 
     with col1:
-        st.subheader("🔎 Visualisation")
-        # On recrée l'image à chaque mouvement pour que la tache suive le trait
-        img_rgb = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
+        # Création de l'image de visualisation (plus rapide en RGB direct)
+        img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
         
-        # 1. Dessin du Tiers Apical (Cyan)
-        cv2.line(img_rgb, (x_input, y_start_tiers), (x_input, y_apex), (0, 255, 255), 10)
+        # Dessin du Tiers Apical (Cyan)
+        cv2.line(img_visu, (x_input, y_start_tiers), (x_input, y_apex), (0, 255, 255), 8)
         
-        # 2. Dessin de la Tache Apex (Synchronisée sur x_input)
+        # Dessin de la Tache Apex
         color_status = (0, 255, 0) if h_apex_final >= 0.45 else (255, 0, 0)
-        cv2.circle(img_rgb, (x_input, y_apex), 25, color_status, -1)
+        cv2.circle(img_visu, (x_input, y_apex), 20, color_status, -1)
         
-        st.image(img_rgb, use_container_width=True, caption=f"Axe X : {x_input}")
+        st.image(img_visu, use_container_width=True)
 
     with col2:
-        st.subheader("📈 Profil de Densité H")
+        # Optimisation Plotly : on limite le nombre de points si le signal est trop long
         fig = go.Figure()
-        fig.add_trace(go.Scatter(y=H_values, mode='lines', line=dict(color='#00fbff', width=5)))
+        fig.add_trace(go.Scatter(y=signal/255.0, mode='lines', line=dict(color='#00fbff', width=4)))
         fig.add_hline(y=0.45, line_dash="dash", line_color="red")
-        fig.add_hrect(y0=0, y1=0.45, fillcolor="red", opacity=0.15)
-        fig.update_layout(template="plotly_dark", height=400, yaxis_title="Densité H")
-        st.plotly_chart(fig, use_container_width=True)
-
-    # --- RAPPORT D'EXPERTISE ---
-    st.divider()
-    if st.button("🚀 EXÉCUTER LE DIAGNOSTIC"):
-        status = "✅ CONFORME" if h_apex_final >= 0.45 else "🚨 PATHOLOGIQUE"
-        st.write(f"### RÉSULTAT : {status}")
+        fig.add_hrect(y0=0, y1=0.45, fillcolor="red", opacity=0.1)
         
-        # Texte du rapport bien fermé pour éviter le SyntaxError
-        rapport_txt = f"""
-        RAPPORT D'EXPERTISE DENTAIRE
-        ----------------------------------
-        POSITION : X={x_input} | Y_apex={y_apex}
-        VALEUR H MOYENNE : {h_apex_final:.2f}
-        DIAGNOSTIC : {status}
-        ----------------------------------
-        """
-        st.code(rapport_txt)
-        st.download_button("📥 Télécharger Rapport", rapport_txt, file_name="expertise.txt")
+        fig.update_layout(
+            template="plotly_dark", 
+            height=380, 
+            margin=dict(l=10, r=10, t=10, b=10),
+            # Désactiver les animations Plotly pour gagner en vitesse
+            transition_duration=0 
+        )
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-else:
-    st.info("💡 En attente du chargement d'une image sur le PC TOSHIBA...")
+    # Bouton de rapport final
+    if st.button("🚀 VALIDER LE DIAGNOSTIC"):
+        status = "✅ CONFORME" if h_apex_final >= 0.45 else "🚨 PATHOLOGIQUE"
+        st.success(f"Diagnostic : {status} (H = {h_apex_final:.2f})")
