@@ -88,7 +88,6 @@ if raw_img is not None:
     with col1:
         st.subheader("🔎 Zone de Scan")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-        # La ligne et la tache rouge se mettent à jour avec les sliders
         cv2.line(img_visu, (x_c, y_tiers_apical), (x_c, y_apex), (0, 255, 255), 10)
         cv2.circle(img_visu, (x_c, y_apex), 20, (255, 0, 0), -1) 
         st.image(img_visu, use_container_width=True)
@@ -110,53 +109,60 @@ if raw_img is not None:
         fig.update_layout(template="plotly_dark", height=350, yaxis=dict(range=[0, 1.1]), yaxis_title="Densité H")
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- 6. DIAGNOSTIC ET RAPPORT .TXT ---
+    # --- 6. DISCUSSION ET EXPERTISE CLINIQUE (AJOUTÉ) ---
     st.divider()
     h_min = np.min(H_values)
     h_apex = H_values[-1]
 
+    st.subheader("👨‍⚕️ Interprétation Clinique de l'Obturation")
+    
+    exp_col1, exp_col2 = st.columns(2)
+    
+    with exp_col1:
+        st.markdown(f"**Analyse de l'Herméticité ($H$) :**")
+        if h_apex >= 0.45:
+            st.success(f"L'obturation canalaire présente une densité satisfaisante ($H$ = {h_apex:.2f}). L'herméticité apicale semble assurer un scellement biologique correct.")
+        else:
+            st.error(f"Défaut d'herméticité détecté ($H$ = {h_apex:.2f}). Risque élevé d'infiltration bactérienne ou persistance d'un vide canalaire.")
+
+    with exp_col2:
+        st.markdown("**Discussion sur le seuil 0.45 :**")
+        st.info("""Le seuil de **0.45** est une limite critique. 
+        - **En-dessous (< 0.45) :** Signe souvent une réaction apicale inflammatoire ou une sous-obturation. 
+        - **Limites :** Ce seuil peut varier selon le matériau d'obturation (Gutta-percha vs Ciment biocéramique) et la minéralisation osseuse du patient.""")
+
+    # --- 7. DIAGNOSTIC ET RAPPORT .TXT ---
+    st.divider()
     col_btn1, col_btn2 = st.columns(2)
 
     with col_btn1:
-        if st.button("✨ LANCER LE DIAGNOSTIC MAGIQUE"):
-            with st.spinner('Analyse...'):
-                time.sleep(1) 
-                if h_apex < 0.45:
-                    st.snow()
-                    st.error(f"### 🚨 PATHOLOGIE DÉTECTÉE (H_apex={h_apex:.2f})")
-                elif h_min < 0.60:
-                    st.warning(f"### ⚠️ ÉTANCHÉITÉ DOUTEUSE (H_min={h_min:.2f})")
-                else:
-                    st.balloons()
-                    st.success(f"### ✅ ÉTANCHÉITÉ VALIDÉE (H_min={h_min:.2f})")
+        if st.button("✨ LANCER LE DIAGNOSTIC"):
+            if h_apex < 0.45:
+                st.snow()
+                st.error("🚨 ÉCHEC D'ÉTANCHÉITÉ / RÉACTION APICALE")
+            else:
+                st.balloons()
+                st.success("✅ OBTURATION VALIDÉE")
 
     with col_btn2:
-        # Génération du fichier texte sans erreur de syntaxe
         lignes_rapport = [
-            "RAPPORT D'EXPERTISE DENTAIRE",
-            "="*30,
+            "RAPPORT D'EXPERTISE DENTAIRE - DENT 16",
+            "="*40,
             f"Date : {time.strftime('%Y-%m-%d %H:%M')}",
-            f"Source : {source_radio}",
-            f"Position X : {x_c}",
-            f"Position Apex (Y) : {y_apex}",
-            f"Densite H a l'Apex : {h_apex:.4f}",
-            f"Densite H Minimum : {h_min:.4f}",
-            "-"*30,
-            f"RESULTAT : {'VALIDE' if h_apex >= 0.45 else 'ECHEC / PATHOLOGIE'}",
-            "="*30
+            f"Hermeticite Apicale (H) : {h_apex:.4f}",
+            f"Seuil Critique : 0.45",
+            "-"*40,
+            "DISCUSSION CLINIQUE :",
+            f"- Statut : {'Alerte Infiltration' if h_apex < 0.45 else 'Scellement Correct'}",
+            "- Note : La valeur de 0.45 est indicative d'une reaction apicale.",
+            "-"*40,
+            f"DIAGNOSTIC FINAL : {'PATHOLOGIE/ECHEC' if h_apex < 0.45 else 'VALIDE'}"
         ]
         rapport_final = "\n".join(lignes_rapport)
 
         st.download_button(
-            label="💾 Télécharger le Rapport (.txt)",
+            label="💾 Télécharger le Rapport Expert (.txt)",
             data=rapport_final,
-            file_name=f"expertise_dentaire_{int(time.time())}.txt",
+            file_name=f"expertise_dentaire_H_{int(time.time())}.txt",
             mime="text/plain"
         )
-
-    # --- 7. RAPPORT TECHNIQUE ---
-    with st.expander("📊 Rapport de mesures"):
-        st.table(pd.DataFrame({
-            "Indicateur": ["H Minimum", "H Apex", "Seuil Critique"],
-            "Valeur": [f"{h_min:.2f}", f"{h_apex:.2f}", "0.45"]
-        }))
