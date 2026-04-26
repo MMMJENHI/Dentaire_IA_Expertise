@@ -56,7 +56,7 @@ else:
     try:
         raw_img = Image.open("dent.jpg")
     except FileNotFoundError:
-        st.warning("Fichier 'dent.jpg' introuvable.")
+        st.warning("Fichier 'dent.jpg' introuvable sur GitHub.")
         st.stop()
 
 # --- 4. TRAITEMENT ET ANALYSE INTERACTIVE ---
@@ -64,29 +64,24 @@ if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
-    # Réglages Sidebar (Modifient la tache rouge et la courbe)
     st.sidebar.markdown("---")
     st.sidebar.header("📍 Réglages de l'Expert")
     x_c = st.sidebar.slider("Position X (Centre Canal)", 0, w, int(w/2))
     y_haut = st.sidebar.slider("Haut du Canal (Y)", 0, h, int(h*0.2))
     y_apex = st.sidebar.slider("Position de l'Apex (Tache Rouge)", 0, h, int(h*0.8))
 
-    # QR Code dynamique
     url_app = "https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/"
     st.sidebar.image(generer_qr_statique(url_app), caption="Expertise Mobile", width=130)
 
-    # Calcul du tiers apical
     y_tiers_apical = int(y_haut + (y_apex - y_haut) * 0.66)
 
-    # --- 5. VISUALISATION ET COURBE DYNAMIQUE ---
+    # --- 5. VISUALISATION ET COURBE ---
     col1, col2 = st.columns([1, 1.2])
 
     with col1:
         st.subheader("🔎 Zone de Scan")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-        # Ligne d'analyse (Cyan)
         cv2.line(img_visu, (x_c, y_tiers_apical), (x_c, y_apex), (0, 255, 255), 10)
-        # TACHE ROUGE (Apex) : Elle bouge avec le slider y_apex
         cv2.circle(img_visu, (x_c, y_apex), 20, (255, 0, 0), -1) 
         st.image(img_visu, use_container_width=True)
 
@@ -99,7 +94,7 @@ if raw_img is not None:
             signal_clean = savgol_filter(signal, window_length=max(3, w_len), polyorder=2)
             H_values = signal_clean / 255.0
         else:
-            H_values = np.array([0.5])
+            H_values = np.array([0.0])
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(y=H_values, mode='lines', line=dict(color='cyan', width=4), name="Profil H"))
@@ -107,22 +102,7 @@ if raw_img is not None:
         fig.update_layout(template="plotly_dark", height=350, yaxis=dict(range=[0, 1.1]), yaxis_title="Densité H")
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- 6. DIAGNOSTIC ET RAPPORT .TXT ---
+    # --- 6. DIAGNOSTIC ET RAPPORT ---
     st.divider()
     h_min = np.min(H_values)
-    h_apex = H_values[-1]
-
-    col_btn1, col_btn2 = st.columns(2)
-
-    with col_btn1:
-        if st.button("✨ LANCER LE DIAGNOSTIC"):
-            if h_apex < 0.45:
-                st.snow()
-                st.error(f"### 🚨 PATHOLOGIE DÉTECTÉE (H_apex={h_apex:.2f})")
-            else:
-                st.balloons()
-                st.success(f"### ✅ ÉTANCHÉITÉ VALIDÉE (H_min={h_min:.2f})")
-
-    with col_btn2:
-        # Création du contenu du rapport texte
-        rapport_txt = f"RAPPORT D'
+    h_apex = H_values[-1
