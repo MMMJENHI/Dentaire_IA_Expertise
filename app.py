@@ -29,17 +29,17 @@ if source_radio == "Local":
     up = st.file_uploader("Radio", type=["jpg", "png", "jpeg"])
     if up: raw_img = Image.open(up)
 elif source_radio == "URL/GitHub":
-    url = st.text_input("Lien Raw :", value="https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
-    if url:
+    url_input = st.text_input("Lien Raw :", value="https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
+    if url_input:
         try:
-            res = requests.get(url, timeout=5)
+            res = requests.get(url_input, timeout=5)
             raw_img = Image.open(BytesIO(res.content))
         except: st.error("Lien invalide")
 else:
     try:
         raw_img = Image.open("dent.jpg")
     except:
-        st.error("Fichier dent.jpg manquant sur GitHub")
+        st.error("Fichier dent.jpg manquant")
         st.stop()
 
 # --- 4. ANALYSE EXPERTE ---
@@ -47,23 +47,29 @@ if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
-    # Réglages Sidebar (QR TOTALEMENT SUPPRIMÉ)
+    # --- BARRE LATÉRALE ---
     st.sidebar.header("📍 Contrôles CAD")
-    x_c = st.sidebar.slider("Position X (Axe Canal)", 0, w, int(w/2))
     
-    # HAUT CANAL Y : C'est le point de départ de l'obturation (entrée du canal)
+    # 📱 QR CODE (Même méthode que Hugging Face)
+    url_projet = "https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/"
+    qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={url_projet}"
+    st.sidebar.image(qr_api, caption="Scanner pour mobile")
+    st.sidebar.divider()
+
+    x_c = st.sidebar.slider("Position X", 0, w, int(w/2))
+    # HAUT CANAL Y : Point de départ de l'obturation
     y_haut = st.sidebar.slider("Haut Canal (Y)", 0, h, int(h*0.2))
-    
-    # Y_APEX : C'est la tache rouge (fin de la racine)
+    # Y_APEX : La tache rouge
     y_apex = st.sidebar.slider("Y_apex (Tache Rouge)", 0, h, int(h*0.8))
 
-    # Calcul du segment d'analyse (Tiers apical)
+    # Calcul automatique du tiers apical
     y_tiers = int(y_haut + (y_apex - y_haut) * 0.66)
 
     # Courbe de densité
     signal = profile_line(img_gray, (y_tiers, x_c), (y_apex, x_c), linewidth=5)
     if len(signal) > 5:
-        signal_clean = savgol_filter(signal, window_length=max(3, (len(signal)//3)*2+1 if len(signal)<11 else 11), polyorder=2)
+        w_len = 11 if len(signal) > 11 else (len(signal)-1 if len(signal)%2==0 else len(signal))
+        signal_clean = savgol_filter(signal, window_length=max(3, w_len), polyorder=2)
         H_values = signal_clean / 255.0
     else:
         H_values = np.array([0.5])
@@ -74,11 +80,9 @@ if raw_img is not None:
     col1, col2 = st.columns(2)
     with col1:
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-        # Ligne d'analyse (Cyan) entre le tiers et l'apex
         cv2.line(img_visu, (x_c, y_tiers), (x_c, y_apex), (0, 255, 255), 8)
-        # TACHE ROUGE (Apex)
         cv2.circle(img_visu, (x_c, y_apex), 20, (255, 0, 0), -1) 
-        st.image(img_visu, use_container_width=True, caption="Expertise CAD active")
+        st.image(img_visu, use_container_width=True)
 
     with col2:
         fig = go.Figure()
@@ -87,7 +91,7 @@ if raw_img is not None:
         fig.update_layout(template="plotly_dark", height=350, yaxis_title="Densité H")
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- 5. GÉNÉRATION DU RAPPORT CAD ---
+    # --- 5. RAPPORT D'EXPERTISE CAD ---
     st.divider()
     statut = "✅ CONFORME" if h_apex >= 0.45 else "🚨 NON CONFORME"
     
@@ -100,11 +104,6 @@ SEUIL DE CONFORMITÉ : 0.45
 ------------------------------------------
 DIAGNOSTIC FINAL : {statut}
 ------------------------------------------
-INTERPRÉTATION CLINIQUE :
-- Indice H : Mesure l'étanchéité biologique.
-- Seuil 0.45 : Limite de réaction apicale.
-- Statut : {statut}
 """
-
-    st.text_area("Prévisualisation CAD", rapport_cad, height=220)
-    st.download_button("💾 Télécharger Rapport (.txt)", rapport_cad, "Rapport_CAD.txt")
+    st.text_area("Prévisualisation du Rapport", rapport_cad, height=200)
+    st.download_button("💾 Télécharger le Rapport (.txt)", rapport_cad, "Rapport_CAD_Dent16.txt")
