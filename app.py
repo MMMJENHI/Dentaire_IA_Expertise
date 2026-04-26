@@ -7,14 +7,16 @@ from scipy.signal import savgol_filter
 from PIL import Image
 import pandas as pd
 import time
-import qrcode  # <--- AJOUTÉ
-from io import BytesIO  # <--- AJOUTÉ
+import qrcode
+from io import BytesIO
 
-# --- 1. CONFIGURATION (TOUJOURS EN PREMIER) ---
+# --- 1. CONFIGURATION DE LA PAGE ---
 st.set_page_config(page_title="IA Expertise Dentaire", layout="wide")
 
-# --- FONCTION QR CODE DYNAMIQUE ---
+# --- 2. FONCTIONS TECHNIQUES ---
+
 def generer_qr_statique(url):
+    """Génère un QR code en mémoire sans passer par un site externe"""
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -28,14 +30,13 @@ def generer_qr_statique(url):
     img.save(buf, format="PNG")
     return buf
 
-# --- 2. DÉFINITION DES FONCTIONS ---
 def preprocess_image(image):
     """Amélioration du contraste pour l'analyse de l'apex"""
     img_array = np.array(image.convert('L'))
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
     return clahe.apply(img_array)
 
-# --- 3. INTERFACE & CHARGEMENT ---
+# --- 3. INTERFACE PRINCIPALE ---
 st.title("🦷 Système Expert : Analyse de la Dent 16")
 st.markdown("Diagnostic automatisé du **Tiers Apical** et de l'herméticité.")
 
@@ -43,6 +44,7 @@ uploaded_file = st.file_uploader("Charger la radiographie (Optionnel)", type=["j
 
 raw_img = None
 
+# Sélection de l'image (Upload ou Démo)
 if uploaded_file is not None:
     raw_img = Image.open(uploaded_file)
 else:
@@ -53,28 +55,31 @@ else:
         st.warning("⚠️ Veuillez charger une radio manuellement pour commencer.")
         st.stop()
 
-# --- 4. TRAITEMENT ET ANALYSE ---
+# --- 4. ANALYSE ET BARRE LATÉRALE ---
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
-    # --- SIDEBAR (RÉGLAGES + QR CODE) ---
+    # Barre latérale : Réglages
     st.sidebar.header("📍 Réglages de l'Expert")
     x_c = st.sidebar.slider("Position X (Centre Canal)", 0, w, int(w/2))
     y_haut = st.sidebar.slider("Haut du Canal (Y)", 0, h, int(h*0.2))
     y_apex = st.sidebar.slider("Fin de l'Apex (Y)", 0, h, int(h*0.8))
 
-    # AJOUT DU QR CODE EN BAS DE LA SIDEBAR
+    # --- LE QR CODE AUTOMATIQUE ---
     st.sidebar.markdown("---")
     st.sidebar.write("### 📲 Application Mobile")
-    url_app = "https://expertise-dentaire-ia.streamlit.app"
+    
+    # REMPLACEZ l'adresse ci-dessous par votre URL Streamlit une fois déployée
+    url_app = "https://dentaireiaexpertise-eghaua2yoepps4kray4zgm.streamlit.app"
+    
     qr_img = generer_qr_statique(url_app)
     st.sidebar.image(qr_img, caption="Scanner pour l'expertise en direct", width=150)
 
-    # Calcul automatique du tiers apical
+    # Calcul du tiers apical
     y_tiers_apical = int(y_haut + (y_apex - y_haut) * 0.66)
 
-    # --- 5. AFFICHAGE VISUEL ET GRAPHIQUE ---
+    # --- 5. AFFICHAGE ET GRAPHIQUES ---
     col1, col2 = st.columns([1, 1.2])
 
     with col1:
@@ -104,7 +109,7 @@ if raw_img is not None:
                           xaxis_title="Profondeur", yaxis_title="Densité H")
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- 6. LE BOUTON DE DIAGNOSTIC ---
+    # --- 6. DIAGNOSTIC ---
     st.divider()
     if st.button("✨ LANCER LE DIAGNOSTIC MAGIQUE"):
         with st.spinner('Analyse IA en cours...'):
@@ -115,16 +120,13 @@ if raw_img is not None:
             if h_apex < 0.45:
                 st.snow() 
                 st.error(f"### 🚨 PATHOLOGIE DÉTECTÉE (H_apex={h_apex:.2f})")
-                st.write("L'IA détecte une déminéralisation à l'apex (Lésion probable).")
             elif h_min < 0.60:
                 st.warning(f"### ⚠️ ÉTANCHÉITÉ DOUTEUSE (H_min={h_min:.2f})")
-                st.write("Le scellage canalaire présente des zones de faible densité.")
             else:
                 st.balloons() 
                 st.success(f"### ✅ ÉTANCHÉITÉ VALIDÉE (H_min={h_min:.2f})")
-                st.write("Le traitement est hermétique et l'os environnant est sain.")
 
-    # --- 7. RAPPORT TECHNIQUE ---
+    # --- 7. RAPPORT ---
     with st.expander("📊 Consulter les données brutes"):
         st.table(pd.DataFrame({
             "Indicateur": ["H Minimal", "H à l'Apex", "Statut Seuil"],
