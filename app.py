@@ -8,27 +8,6 @@ from PIL import Image
 import pandas as pd
 import time
 
-# --- COPIEZ ET COLLEZ CE BLOC DANS DENTAIRE_IA.PY ---
-
-uploaded_file = st.file_uploader("Charger la radiographie (Dent 16)", type=["jpg", "png", "jpeg"])
-
-if uploaded_file is not None:
-    # Si vous glissez un fichier sur le site, l'IA utilise celui-là
-    raw_img = Image.open(uploaded_file)
-else:
-    # Si vous ne glissez rien, l'IA cherche 'dent.jpg' dans votre dossier GitHub
-    try:
-        # IMPORTANT : Ne mettez pas de chemin comme C:/Users/TOSHIBA/
-        # Mettez juste le nom du fichier entre guillemets
-        raw_img = Image.open("dent.jpg")
-        st.info("💡 Mode Démonstration : Image 'dent.jpg' chargée depuis GitHub.")
-    except FileNotFoundError:
-        st.warning("⚠️ Image 'dent.jpg' introuvable dans le dossier GitHub. Veuillez charger une radio manuellement.")
-        st.stop() # Arrête l'exécution pour éviter l'erreur
-
-# La suite du code continue ici...
-img_gray = preprocess_image(raw_img)
-
 # --- CONFIGURATION ---
 st.set_page_config(page_title="IA Expertise Dentaire", layout="wide")
 
