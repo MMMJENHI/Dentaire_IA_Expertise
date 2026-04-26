@@ -6,5 +6,4 @@ scikit-image
 scipy
 pillow
 pandas
-qrcode
 requests
