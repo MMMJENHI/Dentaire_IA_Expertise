@@ -5,97 +5,133 @@ import cv2
 import plotly.graph_objects as go
 from PIL import Image
 from io import BytesIO
+from skimage.measure import profile_line
+from scipy.signal import savgol_filter
+import time
 
-# Configuration Pro
-st.set_page_config(page_title="IA Dentaire - Analyse Universelle", layout="wide")
+# --- CONFIGURATION DE LA PAGE ---
+st.set_page_config(page_title="Expertise Dentaire - Master", layout="wide")
 
-st.title("🦷 Expertise IA Dentaire : Système d'Analyse Multimédia")
-st.write("Importez une radio depuis n'importe quelle source pour lancer l'expertise densitométrique.")
+# --- FONCTIONS TECHNIQUES ---
+def preprocess_image(image):
+    """Amélioration du contraste (CLAHE) pour une analyse précise"""
+    img_array = np.array(image.convert('L'))
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    return clahe.apply(img_array)
 
-# --- BARRE LATÉRALE : SYSTÈME D'IMPORTATION ---
-st.sidebar.header("📁 Sources de Données")
+@st.cache_data
+def load_img_from_url(url):
+    """Chargement sécurisé depuis GitHub ou Web"""
+    try:
+        response = requests.get(url, timeout=5)
+        return Image.open(BytesIO(response.content))
+    except Exception as e:
+        st.error(f"Erreur de lien GitHub : {e}")
+        return None
 
-# Choix de la méthode d'importation
-option = st.sidebar.selectbox(
-    "Comment voulez-vous importer l'image ?",
-    ("Depuis mon PC (Local)", "Depuis GitHub (Raw Link)", "Lien Web (URL direct)")
-)
+# --- INTERFACE UTILISATEUR ---
+st.title("🦷 Système Expert : Diagnostic Synchrone (Tiers Apical)")
+st.markdown("Analyse matricielle interactive de la densité radiculaire.")
 
-img_array = None
+# --- BARRE LATÉRALE ---
+st.sidebar.header("📁 Importation")
+option = st.sidebar.selectbox("Source :", ("Depuis mon PC (Local)", "Lien GitHub (Raw)", "Lien Web"))
 
-# MÉTHODE 1 : DEPUIS LE PC (Sécurité maximale si internet coupe)
+raw_img = None
 if option == "Depuis mon PC (Local)":
-    uploaded_file = st.sidebar.file_uploader("Choisir une radio...", type=['jpg', 'jpeg', 'png'])
-    if uploaded_file is not None:
-        img_array = np.array(Image.open(uploaded_file).convert('L'))
-        st.sidebar.success("✅ Image locale prête.")
-
-# MÉTHODE 2 : DEPUIS GITHUB
-elif option == "Depuis GitHub (Raw Link)":
-    github_url = st.sidebar.text_input("URL Raw de l'image sur GitHub :", 
-                                      "https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
-    if github_url:
-        try:
-            response = requests.get(github_url)
-            img_array = np.array(Image.open(BytesIO(response.content)).convert('L'))
-            st.sidebar.success("✅ Image GitHub connectée.")
-        except:
-            st.sidebar.error("❌ Impossible de lire ce lien GitHub.")
-
-# MÉTHODE 3 : LIEN WEB GÉNÉRIQUE
+    uploaded_file = st.sidebar.file_uploader("Fichier...", type=['jpg', 'jpeg', 'png'])
+    if uploaded_file: 
+        raw_img = Image.open(uploaded_file)
+elif option == "Lien GitHub (Raw)":
+    # Ton lien GitHub par défaut pour ne plus le perdre
+    default_url = "https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg"
+    github_url = st.sidebar.text_input("URL GitHub Raw :", default_url)
+    if github_url: 
+        raw_img = load_img_from_url(github_url)
 else:
-    web_url = st.sidebar.text_input("Entrez l'URL directe de l'image (http...) :")
-    if web_url:
-        try:
-            response = requests.get(web_url)
-            img_array = np.array(Image.open(BytesIO(response.content)).convert('L'))
-            st.sidebar.success("✅ Image Web récupérée.")
-        except:
-            st.sidebar.error("❌ Lien invalide ou protégé.")
+    web_url = st.sidebar.text_input("Lien direct :")
+    if web_url: 
+        raw_img = load_img_from_url(web_url)
 
-# --- ANALYSE ET EXPERTISE ---
-if img_array is not None:
-    # 1. Contrôles Interactifs
+if raw_img is not None:
+    # On mémorise l'image traitée pour la fluidité
+    img_gray = preprocess_image(raw_img)
+    h_img, w_img = img_gray.shape
+
+    # --- SLIDERS : CONTRÔLE DYNAMIQUE ---
     st.sidebar.divider()
-    st.sidebar.header("⚙️ Paramètres du Cercle")
-    h, w = img_array.shape
-    pos_y = st.sidebar.slider("Position Y (Verticale)", 0, h, int(h * 0.75))
-    pos_x = st.sidebar.slider("Position X (Horizontale)", 0, w, int(w * 0.5))
-    rayon = st.sidebar.slider("Rayon d'analyse", 10, 150, 50)
+    st.sidebar.header("📍 Segmentation")
+    x_input = st.sidebar.slider("Position X (Déplacer)", 0, w_img, int(w_img/2))
+    y_top = st.sidebar.slider("Haut du Canal (Y)", 0, h_img, int(h_img*0.2))
+    y_apex = st.sidebar.slider("Point Apex (Y)", 0, h_img, int(h_img*0.8))
 
-    # 2. Visualisation avec Cercle Rouge
-    img_rgb = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
-    overlay = img_rgb.copy()
-    cv2.circle(overlay, (pos_x, pos_y), rayon, (255, 0, 0), -1)
-    img_final = cv2.addWeighted(overlay, 0.3, img_rgb, 0.7, 0)
-    cv2.circle(img_final, (pos_x, pos_y), rayon, (255, 0, 0), 3)
+    # --- CALCULS TECHNIQUES ---
+    # Calcul du début du tiers apical (zone Cyan)
+    y_start_tiers = int(y_top + (y_apex - y_top) * 0.66)
+    
+    # Prélèvement du signal H (Synchronisé sur x_input)
+    # Linewidth réduit à 7 pour plus de fluidité sur Toshiba
+    signal = profile_line(img_gray, (y_start_tiers, x_input), (y_apex, x_input), linewidth=7)
+    
+    if len(signal) > 5:
+        # Lissage Savitzky-Golay
+        w_len = 11 if len(signal) > 11 else (len(signal)-1 if len(signal)%2==0 else len(signal))
+        signal_smooth = savgol_filter(signal, window_length=max(3, w_len), polyorder=2)
+        H_values = signal_smooth / 255.0
+        h_apex_final = np.mean(H_values[-10:]) # Moyenne finale
+    else:
+        H_values = np.array([0.0])
+        h_apex_final = 0.0
 
-    col1, col2 = st.columns(2)
+    # --- AFFICHAGE ---
+    col1, col2 = st.columns([1, 1.2])
+
     with col1:
-        st.subheader("🔍 Radio et Zone d'Expertise")
-        st.image(img_final, use_container_width=True)
+        st.subheader("🔎 Visualisation")
+        img_rgb = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
+        
+        # 1. Dessin du Tiers Apical (Cyan) - Mobile
+        cv2.line(img_rgb, (x_input, y_start_tiers), (x_input, y_apex), (0, 255, 255), 10)
+        
+        # 2. Dessin de la Tache Apex (Synchronisée sur x_input)
+        color_status = (0, 255, 0) if h_apex_final >= 0.45 else (255, 0, 0)
+        cv2.circle(img_rgb, (x_input, y_apex), 25, color_status, -1)
+        
+        st.image(img_rgb, use_container_width=True, caption=f"Analyse active sur l'axe X : {x_input}")
 
     with col2:
-        st.subheader("📈 Courbe de Densité (H-Index)")
-        # Calcul du profil de densité sous le cercle
-        y_start, y_end = max(0, pos_y-rayon), min(h, pos_y+rayon)
-        profile = img_array[y_start:y_end, pos_x] / 255.0
-        
+        st.subheader("📈 Profil de Densité H")
         fig = go.Figure()
-        fig.add_trace(go.Scatter(y=profile, mode='lines', line=dict(color='red', width=3)))
-        fig.add_hrect(y0=0.9, y1=1.0, fillcolor="green", opacity=0.2, annotation_text="ÉTANCHE")
-        fig.add_hrect(y0=0.0, y1=0.45, fillcolor="red", opacity=0.2, annotation_text="LÉSION")
-        fig.update_layout(yaxis_range=[0, 1], margin=dict(l=10, r=10, t=10, b=10))
+        fig.add_trace(go.Scatter(y=H_values, mode='lines', line=dict(color='#00fbff', width=5), name="Densité"))
+        
+        # Seuil de pathologie
+        fig.add_hline(y=0.45, line_dash="dash", line_color="red")
+        fig.add_hrect(y0=0, y1=0.45, fillcolor="red", opacity=0.15)
+        
+        fig.update_layout(template="plotly_dark", height=400, yaxis_title="H (0.0 - 1.0)", xaxis_title="Profondeur Tiers Apical")
         st.plotly_chart(fig, use_container_width=True)
 
-    # 3. Verdict Final
-    h_moyen = np.mean(profile)
+    # --- RAPPORT D'EXPERTISE ---
     st.divider()
-    st.metric("Indice H de la zone", f"{h_moyen:.2f}")
-    if h_moyen > 0.85:
-        st.success("✅ VERDICT : Obturation de qualité, étanchéité apicale confirmée.")
-    else:
-        st.warning("⚠️ VERDICT : Densité insuffisante, risque d'échec endodontique.")
+    if st.button("🚀 EXÉCUTER LE DIAGNOSTIC"):
+        with st.spinner("Génération du rapport..."):
+            time.sleep(0.5)
+            status = "✅ CONFORME" if h_apex_final >= 0.45 else "🚨 PATHOLOGIQUE"
+            st.write(f"### RÉSULTAT : {status}")
+            
+            rapport_txt = f"""
+            RAPPORT D'EXPERTISE DENTAIRE (CAD SYSTEM)
+            ------------------------------------------
+            PROPRIÉTAIRE : Projet Master - Dent 16
+            POSITION ANALYSÉE : X={x_input} | Y_apex={y_apex}
+            VALEUR H APEX MOYENNE : {h_apex_final:.2f}
+            SEUIL DE CONFORMITÉ : 0.45
+            ------------------------------------------
+            DIAGNOSTIC FINAL : {status}
+            ------------------------------------------
+            """
+            st.code(rapport_txt)
+            st.download_button("📥 Télécharger Rapport .txt", rapport_txt, file_name="expertise_dentaire.txt")
 
 else:
-    st.info("💡 Sélectionnez une source d'image dans le menu à gauche pour commencer l'expertise.")
+    st.info("💡 En attente du chargement d'une image sur le PC TOSHIBA. Veuillez sélectionner une source à gauche.")
