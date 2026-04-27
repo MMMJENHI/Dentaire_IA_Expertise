@@ -2,7 +2,7 @@
 
 ### 📲 Accès Direct Mobile
 
-![QR Code Accès Mobile](qrcode)
+![QR Code Accès Mobile](qr-code.png)
 
 [Cliquez ici pour ouvrir l'application](https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/)
 **Projet : IA Expertise Apicale & Étanchéité**
