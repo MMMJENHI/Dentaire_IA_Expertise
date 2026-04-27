@@ -57,7 +57,7 @@ if raw_img is not None:
     # SIDEBAR : CONTRÔLES CAD
     st.sidebar.header("📍 Paramètres CAD")
     
-    # QR CODE VIA API (Méthode stable GitHub)
+    # QR CODE VIA API (Méthode stable Hugging Face / GitHub)
     url_app = "https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/"
     qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
     st.sidebar.image(qr_api, caption="Lien de l'application")
@@ -68,11 +68,12 @@ if raw_img is not None:
     y_apex = st.sidebar.slider("Y_apex (Point Final)", 0, h, int(h*0.8))
 
     # --- SÉCURITÉ ANTI-DISPARITION ---
+    # Si l'Apex est au-dessus du haut, on force un segment de 20 pixels
     if y_apex <= y_haut:
         y_apex = y_haut + 20
-        st.sidebar.warning("⚠️ Ajustement : l'Apex a été placé sous le Haut Canal.")
+        st.sidebar.warning("⚠️ Ajustement automatique : l'Apex a été placé sous le Haut Canal.")
 
-    # Calcul dynamique du Tiers Apical (les derniers 33%)
+    # Calcul dynamique du Tiers Apical (les derniers 33% du segment choisi)
     y_tiers_debut = int(y_haut + (y_apex - y_haut) * 0.66)
     
     # Extraction des profils de densité
@@ -90,20 +91,20 @@ if raw_img is not None:
         st.subheader("🔎 Visualisation CAD")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
         
-        # A. Trait ROUGE (Global) : Décalé
+        # A. Trait ROUGE (Global) : Décalé pour la visibilité
         cv2.line(img_visu, (x_c - 15, y_haut), (x_c - 15, y_apex), (255, 0, 0), 3)
         
-        # B. Trait CYAN épais (Expertise)
+        # B. Trait CYAN épais (Expertise) : Au centre de l'axe
         cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (255, 255, 0), 15)
         
-        # C. Point APEX (Blanc)
+        # C. Point APEX (Blanc) : La cible anatomique
         cv2.circle(img_visu, (x_c, y_apex), 15, (255, 255, 255), -1) 
         
         st.image(img_visu, use_container_width=True, caption="Analyse : Rouge (Total) | Cyan (Tiers Apical)")
 
     with col_graphs:
-        # GRAPHIQUE 1 : ROUGE
-        st.subheader("📈 1. Profil Global (Axe Y réel)")
+        # GRAPHIQUE 1 : ROUGE (Profil Global)
+        st.subheader("📈 1. Profil Global (Position Y réelle)")
         fig1 = go.Figure()
         fig1.add_trace(go.Scatter(
             x=np.arange(y_haut, y_apex), 
@@ -115,39 +116,36 @@ if raw_img is not None:
                            xaxis_title="Pixels verticaux (Axe Y)", yaxis_title="Densité H")
         st.plotly_chart(fig1, use_container_width=True)
 
-        # GRAPHIQUE 2 : CYAN
+        # GRAPHIQUE 2 : CYAN (Zoom Diagnostic)
         st.subheader("📈 2. Tiers Apical (Expertise CAD)")
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(y=H_apical, name="Zone Critique", line=dict(color='cyan', width=5)))
+        # Seuil de conformité à 0.45
         fig2.add_shape(type="line", x0=0, y0=0.45, x1=len(H_apical), y1=0.45, 
                        line=dict(color="white", dash="dash"))
         fig2.update_layout(template="plotly_dark", height=250, margin=dict(t=10, b=10),
                            xaxis_title="Progression dans le Tiers (%)", yaxis_title="Densité H")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. RAPPORT D'EXPERTISE CAD (AFFICHAGE TOTAL) ---
+    # --- 6. RAPPORT D'EXPERTISE CAD ---
     st.divider()
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
     
     rapport_cad = f"""RAPPORT D'EXPERTISE DENTAIRE (CAD SYSTEM)
 ------------------------------------------
-PROPRIÉTAIRE       : Projet Master - Dent 16
-DATE D'ANALYSE     : {time.strftime("%d/%m/%Y %H:%M")}
-POSITION ANALYSÉE  : X={x_c} | Y_apex={y_apex}
+PROPRIÉTAIRE : Projet Master - Dent 16
+POSITION ANALYSÉE : X={x_c} | Y={y_apex}
 VALEUR H APEX MOYENNE : {h_final:.4f}
 SEUIL DE CONFORMITÉ : 0.45
 ------------------------------------------
-DIAGNOSTIC FINAL   : {statut}
+DIAGNOSTIC FINAL : {statut}
 ------------------------------------------
 LÉGENDE TECHNIQUE :
 - Rouge : Trajectoire canalaire globale.
-- Cyan  : Segment d'herméticité apicale (Zone Expertise).
+- Cyan : Segment d'herméticité apicale.
 - Point Blanc : Localisation de l'Apex.
 """
-    st.subheader("📝 Bilan Expert CAD")
-    
-    # Affichage sans cadre de défilement (Scroll)
-    st.code(rapport_cad, language="text")
+    st.text_area("Bilan Expert CAD", rapport_cad, height=200)
     
     st.download_button(
         label="💾 Télécharger le Rapport CAD (.txt)",
