@@ -58,7 +58,8 @@ if raw_img is not None:
     
    
 # QR CODE via API (MISE À JOUR MASTER 2026)
-    url_app = "https://ia-expertise-dentaire-2026.streamlit.app/"
+    # --- CONFIGURATION URL MASTER ---
+    url_app = "https://cad-dentaire-expert-2026.streamlit.app/"
     qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
     st.sidebar.image(qr_api, caption="Scanner pour accès Mobile")
     st.sidebar.divider()
