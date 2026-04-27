@@ -1,7 +1,7 @@
 # 🦷 IA Expertise Dentaire - Master (Analyse de la Dent 16)
 
 ### 📲 Accès Direct à l'Application
-[🚀 Lancer l'Expertise CAD](https://cad-dentaire-expert-2026.streamlit.app/)
+[🚀 Lancer l'Expertise CAD](https://dentaireiaexpertiseia.streamlit.app/)
 
 ---
 
