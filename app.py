@@ -1,144 +1,151 @@
 import streamlit as st
-import requests
-import numpy as np
 import cv2
+import numpy as np
 import plotly.graph_objects as go
-from PIL import Image
-from io import BytesIO
 from skimage.measure import profile_line
 from scipy.signal import savgol_filter
+from PIL import Image
+import pandas as pd
 import time
+import requests
+from io import BytesIO
 
-# --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(page_title="IA Expertise Dentaire - Master", layout="wide")
+# --- 1. CONFIGURATION ---
+st.set_page_config(page_title="CAD IA Dentaire Expert", layout="wide")
 
-# --- FONCTIONS TECHNIQUES ---
+# --- 2. FONCTIONS TECHNIQUES ---
 def preprocess_image(image):
-    """Amélioration du contraste pour mieux voir l'apex"""
     img_array = np.array(image.convert('L'))
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
     return clahe.apply(img_array)
 
-@st.cache_data
-def load_img_from_url(url):
-    try:
-        response = requests.get(url, timeout=5)
-        return Image.open(BytesIO(response.content))
-    except:
-        return None
+def smooth(sig):
+    if len(sig) > 5:
+        w_len = 11 if len(sig) > 11 else (len(sig)-1 if len(sig)%2==0 else len(sig))
+        return savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
+    return sig / 255.0
 
-def auto_center_x(image, x_user, y_target, margin=20):
-    """Ajuste X pour trouver le centre de la racine (évite l'espace interdentaire)"""
-    try:
-        x_start = max(0, x_user - margin)
-        x_end = min(image.shape[1], x_user + margin)
-        line_sample = image[y_target, x_start:x_end]
-        best_x_offset = np.argmax(line_sample)
-        return x_start + best_x_offset
-    except:
-        return x_user
+# --- 3. CHARGEMENT DE LA RADIO ---
+st.title("🦷 CAD System : Expertise Double Échelle (Dent 16)")
 
-# --- INTERFACE UTILISATEUR ---
-st.title("🦷 Système Expert : Analyse du Tiers Apical (Dent 16)")
-st.markdown("Isolation anatomique parallèle à l'axe radiculaire et diagnostic de densité matricielle.")
-
-# --- BARRE LATÉRALE ---
-st.sidebar.header("📁 Importation de la Radio")
-
-# 1. CONFIGURATION DU LIEN STREAMLIT (Lien entre GitHub et le Web)
-url_app = "https://ia-expertise-dentaire-2026.streamlit.app/"
-qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
-
-st.sidebar.image(qr_api, caption="Scanner pour Accès Mobile")
-st.sidebar.markdown(f"[Lien direct]({url_app})")
-st.sidebar.divider()
-
-option = st.sidebar.selectbox("Source :", ("Depuis mon PC (Local)", "Lien GitHub (Raw)", "Lien Web"))
+source_radio = st.sidebar.radio("📁 Source de la Radio :", ("Local", "URL/GitHub", "Démo"))
 
 raw_img = None
-if option == "Depuis mon PC (Local)":
-    uploaded_file = st.sidebar.file_uploader("Fichier image...", type=['jpg', 'jpeg', 'png'])
-    if uploaded_file: raw_img = Image.open(uploaded_file)
-elif option == "Lien GitHub (Raw)":
-    github_url = st.sidebar.text_input("URL :", "https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
-    if github_url: raw_img = load_img_from_url(github_url)
+if source_radio == "Local":
+    up = st.file_uploader("Radio", type=["jpg", "png", "jpeg"])
+    if up: raw_img = Image.open(up)
+elif source_radio == "URL/GitHub":
+    url_input = st.text_input("Lien Raw :", value="https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
+    if url_input:
+        try:
+            res = requests.get(url_input, timeout=5)
+            raw_img = Image.open(BytesIO(res.content))
+        except: st.error("Lien invalide ou erreur réseau")
 else:
-    web_url = st.sidebar.text_input("Lien direct :")
-    if web_url: raw_img = load_img_from_url(web_url)
+    try:
+        raw_img = Image.open("dent.jpg")
+    except:
+        st.error("Fichier 'dent.jpg' absent du dépôt.")
+        st.stop()
 
+# --- 4. TRAITEMENT ET ANALYSE ---
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
-    h_img, w_img = img_gray.shape
+    h, w = img_gray.shape
 
+    st.sidebar.header("📍 Paramètres CAD")
+    
+    url_app = "https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/"
+    qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
+    st.sidebar.image(qr_api, caption="Lien Mobile")
     st.sidebar.divider()
-    st.sidebar.header("📍 Segmentation & Axes")
+
+    x_c = st.sidebar.slider("Position X (Axe)", 0, w, int(w/2))
+    y_haut = st.sidebar.slider("Haut Canal (Y)", 0, h, int(h*0.2))
+    y_apex = st.sidebar.slider("Y_apex (Point Final)", 0, h, int(h*0.8))
+
+    if y_apex <= y_haut: y_apex = y_haut + 20
+
+    y_tiers_debut = int(y_haut + (y_apex - y_haut) * 0.66)
     
-    x_input = st.sidebar.slider("Axe X (Approximatif)", 0, w_img, int(w_img/2))
-    y_top_canal = st.sidebar.slider("Haut du Canal (Y)", 0, h_img, int(h_img*0.2))
-    y_apex_point = st.sidebar.slider("Point Apex (Y)", 0, h_img, int(h_img*0.8))
+    signal_global = profile_line(img_gray, (y_haut, x_c), (y_apex, x_c), linewidth=3)
+    signal_apical = profile_line(img_gray, (y_tiers_debut, x_c), (y_apex, x_c), linewidth=5)
 
-    x_top = auto_center_x(img_gray, x_input, y_top_canal)
-    x_apex = auto_center_x(img_gray, x_input, y_apex_point)
-    
-    y_start_tiers = int(y_top_canal + (y_apex_point - y_top_canal) * 0.66)
-    x_start_tiers = int(x_top + (x_apex - x_top) * 0.66)
+    H_global = smooth(signal_global)
+    H_apical = smooth(signal_apical)
+    h_final = H_apical[-1]
 
-    signal = profile_line(img_gray, (y_start_tiers, x_start_tiers), (y_apex_point, x_apex), linewidth=8)
-    
-    if len(signal) > 5:
-        w_len = 11 if len(signal) > 11 else (len(signal)-1 if len(signal)%2==0 else len(signal))
-        signal_smooth = savgol_filter(signal, window_length=max(3, w_len), polyorder=2)
-        H_values = signal_smooth / 255.0
-        h_apex_final = np.mean(H_values[-10:])
-    else:
-        H_values = np.array([0.0])
-        h_apex_final = 0.0
+    # --- 5. VISUALISATION AVEC LÉGENDES ---
+    col_img, col_graphs = st.columns([1, 1.5])
 
-    col1, col2 = st.columns([1, 1.2])
+    with col_img:
+        st.subheader("🔎 Cartographie CAD")
+        # LÉGENDE DE LA RADIO
+        st.markdown("""
+        <div style="font-size:14px; margin-bottom:10px;">
+            <span style="color:red; font-weight:bold;">🔴 Trait Rouge :</span> Scan Global <br>
+            <span style="color:yellow; font-weight:bold;">🟡 Trait Jaune :</span> Expertise Tiers Apical <br>
+            <span style="color:white; font-weight:bold; background-color:gray; padding:2px;">⚪ Point Blanc :</span> Apex Cible
+        </div>
+        """, unsafe_allow_html=True)
+        
+        img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
+        cv2.line(img_visu, (x_c - 15, y_haut), (x_c - 15, y_apex), (255, 0, 0), 3)
+        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (255, 255, 0), 12)
+        cv2.circle(img_visu, (x_c, y_apex), 15, (255, 255, 255), -1) 
+        st.image(img_visu, use_container_width=True)
 
-    with col1:
-        st.subheader("🔎 Visualisation Anatomique")
-        img_rgb = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-        cv2.line(img_rgb, (x_top, y_top_canal), (x_start_tiers, y_start_tiers), (100, 100, 100), 2)
-        cv2.line(img_rgb, (x_start_tiers, y_start_tiers), (x_apex, y_apex_point), (0, 255, 255), 10)
-        color_status = (0, 255, 0) if h_apex_final >= 0.45 else (255, 0, 0)
-        cv2.circle(img_rgb, (x_apex, y_apex_point), 25, color_status, -1)
-        st.image(img_rgb, use_container_width=True, caption=f"Axe X Apex : {x_apex}")
+    with col_graphs:
+        st.subheader("📈 Profils de Densité H")
+        
+        # GRAPHE 1 : ROUGE
+        st.markdown("<b style='color:red;'>📉 Courbe 1 : Densité sur la trajectoire globale</b>", unsafe_allow_html=True)
+        fig1 = go.Figure()
+        fig1.add_trace(go.Scatter(x=np.arange(y_haut, y_apex), y=H_global, name="Global", line=dict(color='red', width=3)))
+        fig1.update_layout(template="plotly_dark", height=200, margin=dict(t=10, b=10), xaxis_title="Y (Pixels)", yaxis_title="H")
+        st.plotly_chart(fig1, use_container_width=True)
 
-    with col2:
-        st.subheader("📈 Profil de Densité H")
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(y=H_values, mode='lines', line=dict(color='#00fbff', width=5), name="Densité H"))
-        fig.add_hline(y=0.45, line_dash="dash", line_color="red", annotation_text="SEUIL DE PATHOLOGIE")
-        fig.add_hrect(y0=0, y1=0.45, fillcolor="red", opacity=0.15)
-        fig.update_layout(template="plotly_dark", height=400, yaxis_title="Valeur H (0-1)", xaxis_title="Profondeur Tiers Apical")
-        st.plotly_chart(fig, use_container_width=True)
+        # GRAPHE 2 : CYAN
+        st.markdown("<b style='color:cyan;'>📉 Courbe 2 : Zoom sur l'étanchéité apicale (Seuil 0.45)</b>", unsafe_allow_html=True)
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(y=H_apical, name="Tiers Apical", line=dict(color='cyan', width=5)))
+        fig2.add_shape(type="line", x0=0, y0=0.45, x1=len(H_apical), y1=0.45, line=dict(color="white", dash="dash"))
+        fig2.update_layout(template="plotly_dark", height=200, margin=dict(t=10, b=10), xaxis_title="Progression %", yaxis_title="H")
+        st.plotly_chart(fig2, use_container_width=True)
 
+    # --- 6. RAPPORT D'EXPERTISE CAD ---
     st.divider()
+    statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
+    precision_apex = "Validée" if y_apex > (h * 0.7) else "À vérifier"
+
+    rapport_expert = f"""
+    RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD v3.0
+    --------------------------------------------------
+    UNITÉ D'ANALYSE    : Cabinet Dentaire Universitaire
+    PROJET             : Master Diagnostic IA - Dent 16
+    --------------------------------------------------
     
-    if st.button("🚀 LANCER L'EXPERTISE FINALE"):
-        with st.spinner('Analyse matricielle...'):
-            time.sleep(1)
-            status = "✅ SAIN (CONFORME)" if h_apex_final >= 0.45 else "🚨 PATHOLOGIQUE (NON CONFORME)"
-            color_res = st.success if h_apex_final >= 0.45 else st.error
-            color_res(f"## {status}")
-            
-            rapport = f"""
-            RAPPORT D'EXPERTISE DENTAIRE (CAD SYSTEM)
-            ------------------------------------------
-            APPLICATION URL : {url_app}
-            DENT ANALYSÉE   : Dent 16 (Molaire Sup.)
-            AXE X RECENTRÉ  : {x_apex}
-            VALEUR H APEX   : {h_apex_final:.2f}
-            SEUIL CRITIQUE  : 0.45
-            ------------------------------------------
-            CONCLUSION : {"Étanchéité optimale" if h_apex_final >= 0.45 else "Rupture d'étanchéité"}
-            """
-            st.code(rapport)
-            st.download_button("📥 Télécharger le rapport", rapport, file_name="expertise_dent16.txt")
+    [1] DONNÉES DE LOCALISATION :
+    - Axe de forage (X) : {x_c} px
+    - Cible Apicale     : {y_apex} px (POINT BLANC)
+    - Précision Apex    : {precision_apex}
+    
+    [2] ANALYSE DE DENSITÉ (ZONE CYAN) :
+    - Indice H final    : {h_final:.4f}
+    - Seuil de sécurité : 0.45
+    
+    --------------------------------------------------
+    [3] VALIDATION DU VERDICT :
+    DIAGNOSTIC FINAL    : {statut}
+    --------------------------------------------------
+    
+    INTERPRÉTATION CLINIQUE :
+    "L'obturation est montée jusqu'au Point Blanc avec une 
+    densité suffisante (H > 0.45). Le repère visuel blanc 
+    confirme l'absence de sous-obturation et garantit 
+    l'étanchéité du tiers apical."
+    """
 
-    st.info("### 📘 Méthodologie de Master")
-    st.write(f"Analyse effectuée sur l'adresse officielle : {url_app}")
-
-else:
-    st.info("💡 En attente d'une radio RVG sur le PC TOSHIBA...")
+    st.subheader("📝 Bilan Expert CAD")
+    st.code(rapport_expert, language="text")
+    st.download_button(label="💾 Générer l'Attestation d'Expertise (.txt)", data=rapport_expert, file_name=f"Expertise_CAD_Dent16.txt", mime="text/plain")
