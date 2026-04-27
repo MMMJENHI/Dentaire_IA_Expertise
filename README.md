@@ -2,9 +2,9 @@
 
 ### 📲 Accès Direct Mobile
 <p align="center">
-  <img src="<img width="1424" height="2313" alt="dent" src="https://github.com/user-attachments/assets/e341ee33-475d-4a4c-8c8c-29807a4f5fb1" />
-qrcode.png" width="200" title="Scannez-moi">
+  <img src="https://github.com/user-attachments/assets/e341ee33-475d-4a4c-8c8c-29807a4f5fb1" width="200" title="Scannez-moi">
 </p>
+
 
 
 
