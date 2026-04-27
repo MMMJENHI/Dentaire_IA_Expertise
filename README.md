@@ -1,9 +1,13 @@
 # 🦷 IA Expertise Dentaire (Dent 16)
 
 ### 📲 Accès Direct Mobile
+<p align="center">
+  <img src="qrcode.png" width="200" title="Scannez-moi">
+</p>
 
 
-![Lien vers l'application](https://github.com/MMMJENHI/Dentaire_IA_Expertise/qr-code.png)
+
+![Lien vers l'application](https://github.com/MMMJENHI/Dentaire_IA_Expertise/qrcode.png)
 
 [Cliquez ici pour ouvrir l'application](https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/)
 **Projet : IA Expertise Apicale & Étanchéité**
