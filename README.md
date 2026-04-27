@@ -1,27 +1,30 @@
-# 🦷 IA Expertise Dentaire (Dent 16)
+# 🦷 IA Expertise Dentaire - Master (Analyse de la Dent 16)
 
-### 📲 Accès Direct Mobile
-*(Le QR Code dynamique est disponible directement dans l'application)*
-
-[Cliquez ici pour ouvrir l'application](https://cad-dentaire-expert-2026.streamlit.app/)
-
-**Projet : IA Expertise Apicale & Étanchéité**
-
-Ce dépôt contient une application de diagnostic assisté par IA dédiée à l'analyse du tiers apical de la dent 16. Elle permet de mesurer la densité H (Herméticité) pour valider l'étanchéité des traitements endodontiques.
-
-## 🚀 Accès Rapide
-- **Application Live :** [Expertise Dentaire IA](https://cad-dentaire-expert-2026.streamlit.app/)
-- **Accès Mobile :** Scannez le QR Code dynamique dans la barre latérale de l'application pour une analyse sur smartphone.
-
-## 🛠️ Fonctionnalités Clés
-1. **Triple Chargement :** Importation de radios via PC local, lien URL direct ou mode démonstration.
-2. **Traitement d'Image :** Amélioration du contraste par algorithme CLAHE (OpenCV).
-3. **Analyse de Densité :** Calcul interactif de la courbe de densité H sur le tiers apical via Plotly.
-4. **Diagnostic IA :** Détection automatisée de défauts d'étanchéité (Seuil critique : 0.45).
-
-## 📊 Structure du Projet
-- `dentaire_ia.py` : Code principal de l'application (Version Master 2026).
-- `requirements.txt` : Liste des bibliothèques (OpenCV, Plotly, Scipy).
-- `dent.jpg` : Image de référence pour le mode démonstration.
+### 📲 Accès Direct à l'Application
+[🚀 Lancer l'Expertise CAD](https://cad-dentaire-expert-2026.streamlit.app/)
 
 ---
+
+## 🔬 Présentation du Projet
+Ce système de **Diagnostic Assisté par Ordinateur (CAD)** est conçu pour l'analyse automatisée de l'étanchéité apicale sur des radiographies dentaires. Le projet se concentre sur l'isolation anatomique du tiers apical et la mesure de la densité matricielle (Indice H).
+
+## 🛠️ Innovations Techniques (Version Master)
+Cette version intègre des algorithmes avancés de traitement du signal et d'imagerie :
+1. **Auto-Center IA :** Recentrage dynamique de l'axe X pour compenser les erreurs de parallélisme.
+2. **Segmentation Oblique :** Calcul d'un profil de ligne incliné pour suivre précisément l'anatomie de la racine.
+3. **Isolation du Tiers Apical :** Analyse exclusive des derniers 33% de la zone radiculaire.
+4. **Calcul de l'Indice H :** Normalisation des niveaux de gris et lissage via filtre Savitzky-Golay.
+
+## 🚀 Fonctionnalités
+- **Importation Multimodal :** PC Local, URL GitHub Raw ou Mode Démo.
+- **Visualisation Dynamique :** Cartographie en temps réel (Trait Cyan pour le tiers apical).
+- **Rapport d'Expertise :** Génération automatique d'un bilan technique téléchargeable (.txt).
+- **Verdict Automatisé :** Comparaison à un seuil critique de pathologie (0.45).
+
+## 📊 Structure du Dépôt
+- `app.py` : Code source de l'application (Streamlit + OpenCV).
+- `requirements.txt` : Dépendances (NumPy, Plotly, Scikit-image, Scipy).
+- `dent.jpg` : Image échantillon pour les tests de démonstration.
+
+---
+**Développé dans le cadre d'un projet de Master | 2026**
