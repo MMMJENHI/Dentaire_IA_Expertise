@@ -3,7 +3,7 @@
 ### 📲 Accès Direct Mobile
 
 
-![Lien vers l'application](qr-code.png)
+![Lien vers l'application](https://github.com/MMMJENHI/Dentaire_IA_Expertise/qr-code.png)
 
 [Cliquez ici pour ouvrir l'application](https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/)
 **Projet : IA Expertise Apicale & Étanchéité**
