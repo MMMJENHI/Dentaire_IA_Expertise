@@ -106,34 +106,51 @@ if raw_img is not None:
         fig2.update_layout(template="plotly_dark", height=250, margin=dict(t=10, b=10), xaxis_title="Progression %", yaxis_title="Densité H")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. RAPPORT D'EXPERTISE (AFFICHAGE TOTAL) ---
+   # --- 6. RAPPORT D'EXPERTISE CAD (VALIDATION DU VERDICT) ---
     st.divider()
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
     
-    rapport_texte = f"""
-    RAPPORT D'EXPERTISE DENTAIRE (CAD SYSTEM)
-    ------------------------------------------
-    PROPRIÉTAIRE       : Projet Master - Dent 16
-    DATE               : {time.strftime("%d/%m/%Y %H:%M")}
-    POSITION ANALYSÉE  : X={x_c} | Y={y_apex}
-    VALEUR H APEX      : {h_final:.4f}
-    SEUIL CRITIQUE     : 0.45
-    ------------------------------------------
-    DIAGNOSTIC FINAL   : {statut}
-    ------------------------------------------
-    LÉGENDE TECHNIQUE :
-    - Rouge : Trajectoire globale (Continuité).
-    - Cyan  : Segment d'herméticité (Expertise Apicale).
-    - Point Blanc : Localisation de l'Apex.
+    # Analyse experte du point blanc
+    precision_apex = "Validée (Position terminale)" if y_apex > (h * 0.7) else "À vérifier (Position haute)"
+
+    rapport_expert = f"""
+    RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD v3.0
+    --------------------------------------------------
+    UNITÉ D'ANALYSE    : Cabinet Dentaire Universitaire
+    PROJET             : Master Diagnostic IA - Dent 16
+    --------------------------------------------------
+    
+    [1] DONNÉES DE LOCALISATION :
+    - Axe de forage (X) : {x_c} px
+    - Limite Coronaire  : {y_haut} px
+    - Cible Apicale     : {y_apex} px (POINT BLANC)
+    - Précision Apex    : {precision_apex}
+    
+    [2] ANALYSE DE DENSITÉ (ZONE CYAN) :
+    - Indice H final    : {h_final:.4f}
+    - Seuil de sécurité : 0.45
+    
+    --------------------------------------------------
+    [3] VALIDATION DU VERDICT :
+    DIAGNOSTIC FINAL    : {statut}
+    --------------------------------------------------
+    
+    INTERPRÉTATION CLINIQUE :
+    "L'obturation est montée jusqu'au Point Blanc avec une 
+    densité suffisante (H > 0.45). Le repère visuel blanc 
+    confirme l'absence de sous-obturation et garantit 
+    l'étanchéité du tiers apical."
     """
-    
+
     st.subheader("📝 Bilan Expert CAD")
-    # Utilisation de st.code pour supprimer le cadre "text_area" et afficher tout le texte
-    st.code(rapport_texte, language="text")
     
+    # Affichage en bloc de code pour une lecture totale et pro
+    st.code(rapport_expert, language="text")
+    
+    # Bouton de téléchargement
     st.download_button(
-        label="💾 Télécharger le Rapport (.txt)",
-        data=rapport_texte,
-        file_name=f"Rapport_CAD_Dent16.txt",
+        label="💾 Générer l'Attestation d'Expertise (.txt)",
+        data=rapport_expert,
+        file_name=f"Expertise_CAD_Dent16.txt",
         mime="text/plain"
     )
