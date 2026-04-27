@@ -56,11 +56,14 @@ if raw_img is not None:
 
     st.sidebar.header("📍 Paramètres CAD")
     
-    # QR CODE via API
-    url_app = "https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/"
+   
+# QR CODE via API (MISE À JOUR MASTER 2026)
+    url_app = "https://ia-expertise-dentaire-2026.streamlit.app/"
     qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
-    st.sidebar.image(qr_api, caption="Lien Mobile")
+    st.sidebar.image(qr_api, caption="Scanner pour accès Mobile")
     st.sidebar.divider()
+
+    
 
     x_c = st.sidebar.slider("Position X (Axe)", 0, w, int(w/2))
     y_haut = st.sidebar.slider("Haut Canal (Y)", 0, h, int(h*0.2))
