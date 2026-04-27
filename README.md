@@ -1,9 +1,8 @@
 # 🦷 IA Expertise Dentaire (Dent 16)
 
 ### 📲 Accès Direct Mobile
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/e341ee33-475d-4a4c-8c8c-29807a4f5fb1" width="200" title="Scannez-moi">
-</p>
+<img width="400" height="400" alt="qrcode" src="https://github.com/user-attachments/assets/8a88a726-8bac-493f-93f3-dc60b65e1e80" />
+
 
 
 
