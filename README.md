@@ -4,11 +4,6 @@
 <img width="400" height="400" alt="qrcode" src="https://github.com/user-attachments/assets/8a88a726-8bac-493f-93f3-dc60b65e1e80" />
 
 
-
-
-
-![Lien vers l'application](https://github.com/MMMJENHI/Dentaire_IA_Expertise/qrcode.png)
-
 [Cliquez ici pour ouvrir l'application](https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/)
 **Projet : IA Expertise Apicale & Étanchéité**
 
