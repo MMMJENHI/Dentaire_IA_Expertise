@@ -1,30 +1,27 @@
 # 🦷 IA Expertise Dentaire (Dent 16)
 
 ### 📲 Accès Direct Mobile
-<img width="400" height="400" alt="qrcode" src="https://github.com/user-attachments/assets/8a88a726-8bac-493f-93f3-dc60b65e1e80" />
+*(Le QR Code dynamique est disponible directement dans l'application)*
 
+[Cliquez ici pour ouvrir l'application](https://cad-dentaire-expert-2026.streamlit.app/)
 
-[Cliquez ici pour ouvrir l'application](https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/)
 **Projet : IA Expertise Apicale & Étanchéité**
 
 Ce dépôt contient une application de diagnostic assisté par IA dédiée à l'analyse du tiers apical de la dent 16. Elle permet de mesurer la densité H (Herméticité) pour valider l'étanchéité des traitements endodontiques.
 
 ## 🚀 Accès Rapide
-- **Application Live :** [Expertise Dentaire IA](https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/)
-- **Accès Mobile :** Scannez le QR Code disponible dans la barre latérale de l'application.
+- **Application Live :** [Expertise Dentaire IA](https://cad-dentaire-expert-2026.streamlit.app/)
+- **Accès Mobile :** Scannez le QR Code dynamique dans la barre latérale de l'application pour une analyse sur smartphone.
 
 ## 🛠️ Fonctionnalités Clés
 1. **Triple Chargement :** Importation de radios via PC local, lien URL direct ou mode démonstration.
 2. **Traitement d'Image :** Amélioration du contraste par algorithme CLAHE (OpenCV).
 3. **Analyse de Densité :** Calcul interactif de la courbe de densité H sur le tiers apical via Plotly.
-4. **Diagnostic IA :** Détection automatisée de pathologies ou défauts d'étanchéité (Seuil critique : 0.45).
-
+4. **Diagnostic IA :** Détection automatisée de défauts d'étanchéité (Seuil critique : 0.45).
 
 ## 📊 Structure du Projet
-- `app.py` : Code principal de l'application Streamlit.
-- `requirements.txt` : Liste des bibliothèques Python nécessaires.
+- `dentaire_ia.py` : Code principal de l'application (Version Master 2026).
+- `requirements.txt` : Liste des bibliothèques (OpenCV, Plotly, Scipy).
 - `dent.jpg` : Image de référence pour le mode démonstration.
-- `qr_code.png` : Image fixe du QR code pour le partage.
 
 ---
-*Développé par MMMJENHI - 2026*
