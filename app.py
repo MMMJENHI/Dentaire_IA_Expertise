@@ -1,160 +1,164 @@
 import streamlit as st
-import cv2
+import requests
 import numpy as np
+import cv2
 import plotly.graph_objects as go
+from PIL import Image
+from io import BytesIO
 from skimage.measure import profile_line
 from scipy.signal import savgol_filter
-from PIL import Image
-import pandas as pd
 import time
-import requests
-from io import BytesIO
 
-# --- 1. CONFIGURATION ---
-st.set_page_config(page_title="CAD IA Dentaire Expert", layout="wide")
+# --- CONFIGURATION DE LA PAGE ---
+st.set_page_config(page_title="IA Expertise Dentaire - Master", layout="wide")
 
-# --- 2. FONCTIONS TECHNIQUES ---
+# --- FONCTIONS TECHNIQUES ---
 def preprocess_image(image):
+    """Amélioration du contraste pour mieux voir l'apex"""
     img_array = np.array(image.convert('L'))
-    # Amélioration du contraste pour mieux voir la gutta-percha
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
     return clahe.apply(img_array)
 
-def smooth(sig):
-    if len(sig) > 5:
-        w_len = 11 if len(sig) > 11 else (len(sig)-1 if len(sig)%2==0 else len(sig))
-        return savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
-    return sig / 255.0
+@st.cache_data
+def load_img_from_url(url):
+    try:
+        response = requests.get(url, timeout=5)
+        return Image.open(BytesIO(response.content))
+    except:
+        return None
 
-# --- 3. CHARGEMENT DE LA RADIO ---
-st.title("🦷 CAD System : Expertise Double Échelle (Dent 16)")
+def auto_center_x(image, x_user, y_target, margin=20):
+    """Ajuste X pour trouver le centre de la racine (évite l'espace interdentaire)"""
+    try:
+        x_start = max(0, x_user - margin)
+        x_end = min(image.shape[1], x_user + margin)
+        line_sample = image[y_target, x_start:x_end]
+        # On cherche le pic de blancheur (la dent ou la gutta-percha)
+        best_x_offset = np.argmax(line_sample)
+        return x_start + best_x_offset
+    except:
+        return x_user
 
-source_radio = st.sidebar.radio("📁 Source de la Radio :", ("Local", "URL/GitHub", "Démo"))
+# --- INTERFACE UTILISATEUR ---
+st.title("🦷 Système Expert : Analyse du Tiers Apical (Dent 16)")
+st.markdown("Isolation anatomique parallèle à l'axe radiculaire et diagnostic de densité matricielle.")
+
+# --- BARRE LATÉRALE ---
+st.sidebar.header("📁 Importation de la Radio")
+option = st.sidebar.selectbox("Source :", ("Depuis mon PC (Local)", "Lien GitHub (Raw)", "Lien Web"))
 
 raw_img = None
-if source_radio == "Local":
-    up = st.file_uploader("Radio", type=["jpg", "png", "jpeg"])
-    if up: raw_img = Image.open(up)
-elif source_radio == "URL/GitHub":
-    url_input = st.text_input("Lien Raw :", value="https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
-    if url_input:
-        try:
-            res = requests.get(url_input, timeout=5)
-            raw_img = Image.open(BytesIO(res.content))
-        except: st.error("Lien invalide ou erreur réseau")
+if option == "Depuis mon PC (Local)":
+    uploaded_file = st.sidebar.file_uploader("Fichier image...", type=['jpg', 'jpeg', 'png'])
+    if uploaded_file: raw_img = Image.open(uploaded_file)
+elif option == "Lien GitHub (Raw)":
+    github_url = st.sidebar.text_input("URL :", "https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
+    if github_url: raw_img = load_img_from_url(github_url)
 else:
-    try:
-        raw_img = Image.open("dent.jpg")
-    except:
-        st.error("Fichier 'dent.jpg' absent du dépôt.")
-        st.stop()
+    web_url = st.sidebar.text_input("Lien direct :")
+    if web_url: raw_img = load_img_from_url(web_url)
 
-# --- 4. TRAITEMENT ET ANALYSE ---
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
-    h, w = img_gray.shape
+    h_img, w_img = img_gray.shape
 
-    st.sidebar.header("📍 Paramètres CAD")
-    
-   
-# QR CODE via API (MISE À JOUR MASTER 2026)
-    # --- CONFIGURATION URL MASTER ---
-    url_app = "https://cad-dentaire-expert-2026.streamlit.app/"
-    qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
-    st.sidebar.image(qr_api, caption="Scanner pour accès Mobile")
     st.sidebar.divider()
-
+    st.sidebar.header("📍 Segmentation & Axes")
     
+    # Sliders de positionnement
+    x_input = st.sidebar.slider("Axe X (Approximatif)", 0, w_img, int(w_img/2))
+    y_top_canal = st.sidebar.slider("Haut du Canal (Y)", 0, h_img, int(h_img*0.2))
+    y_apex_point = st.sidebar.slider("Point Apex (Y)", 0, h_img, int(h_img*0.8))
 
-    x_c = st.sidebar.slider("Position X (Axe)", 0, w, int(w/2))
-    y_haut = st.sidebar.slider("Haut Canal (Y)", 0, h, int(h*0.2))
-    y_apex = st.sidebar.slider("Y_apex (Point Final)", 0, h, int(h*0.8))
-
-    # Sécurité anti-disparition
-    if y_apex <= y_haut: y_apex = y_haut + 20
-
-    # Calcul du Tiers Apical (33% finaux)
-    y_tiers_debut = int(y_haut + (y_apex - y_haut) * 0.66)
+    # --- ÉTAPE 1 : RECENTRAGE DYNAMIQUE (IA) ---
+    # On recentre en haut ET en bas pour créer une ligne oblique parfaite
+    x_top = auto_center_x(img_gray, x_input, y_top_canal)
+    x_apex = auto_center_x(img_gray, x_input, y_apex_point)
     
-    # Signaux
-    signal_global = profile_line(img_gray, (y_haut, x_c), (y_apex, x_c), linewidth=3)
-    signal_apical = profile_line(img_gray, (y_tiers_debut, x_c), (y_apex, x_c), linewidth=5)
+    # --- ÉTAPE 2 : ISOLATION DU TIERS APICAL (33% terminaux) ---
+    y_start_tiers = int(y_top_canal + (y_apex_point - y_top_canal) * 0.66)
+    # On calcule le X correspondant au début du tiers apical (interpolation)
+    x_start_tiers = int(x_top + (x_apex - x_top) * 0.66)
 
-    H_global = smooth(signal_global)
-    H_apical = smooth(signal_apical)
-    h_final = H_apical[-1]
+    # --- ÉTAPE 3 : CALCUL DE LA VARIABLE H ---
+    # Scan oblique entre le début du tiers et l'apex
+    signal = profile_line(img_gray, (y_start_tiers, x_start_tiers), (y_apex_point, x_apex), linewidth=8)
+    
+    if len(signal) > 5:
+        # Lissage de la courbe
+        w_len = 11 if len(signal) > 11 else (len(signal)-1 if len(signal)%2==0 else len(signal))
+        signal_smooth = savgol_filter(signal, window_length=max(3, w_len), polyorder=2)
+        H_values = signal_smooth / 255.0
+        h_apex_final = np.mean(H_values[-10:]) # Moyenne sur les derniers pixels de l'apex
+    else:
+        H_values = np.array([0.0])
+        h_apex_final = 0.0
 
-    # --- 5. VISUALISATION ---
-    col_img, col_graphs = st.columns([1, 1.5])
+    # --- AFFICHAGE DES RÉSULTATS ---
+    col1, col2 = st.columns([1, 1.2])
 
-    with col_img:
-        st.subheader("🔎 Visualisation CAD")
-        img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-        # Rouge : Global (décalé) | Cyan : Apical (centre) | Blanc : Apex
-        cv2.line(img_visu, (x_c - 15, y_haut), (x_c - 15, y_apex), (255, 0, 0), 3)
-        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (255, 255, 0), 12)
-        cv2.circle(img_visu, (x_c, y_apex), 15, (255, 255, 255), -1) 
-        st.image(img_visu, use_container_width=True)
+    with col1:
+        st.subheader("🔎 Visualisation Anatomique")
+        img_rgb = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
+        
+        # Dessin de l'axe complet (Pointillé Gris)
+        cv2.line(img_rgb, (x_top, y_top_canal), (x_start_tiers, y_start_tiers), (100, 100, 100), 2)
+        
+        # Dessin du TIERS APICAL (Ligne Cyan Épaisse)
+        cv2.line(img_rgb, (x_start_tiers, y_start_tiers), (x_apex, y_apex_point), (0, 255, 255), 10)
+        
+        # Dessin de l'APEX (Cercle de statut)
+        color_status = (0, 255, 0) if h_apex_final >= 0.45 else (255, 0, 0)
+        cv2.circle(img_rgb, (x_apex, y_apex_point), 25, color_status, -1)
+        
+        st.image(img_rgb, use_container_width=True, caption=f"Segmentation oblique active | Axe X Apex : {x_apex}")
 
-    with col_graphs:
-        # Graphe Global (Rouge)
-        fig1 = go.Figure()
-        fig1.add_trace(go.Scatter(x=np.arange(y_haut, y_apex), y=H_global, name="Global", line=dict(color='red', width=3)))
-        fig1.update_layout(template="plotly_dark", height=250, margin=dict(t=10, b=10), xaxis_title="Y (Pixels)", yaxis_title="Densité H")
-        st.plotly_chart(fig1, use_container_width=True)
+    with col2:
+        st.subheader("📈 Profil de Densité H")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=H_values, mode='lines', line=dict(color='#00fbff', width=5), name="Densité H"))
+        
+        # Zone de seuil
+        fig.add_hline(y=0.45, line_dash="dash", line_color="red", annotation_text="SEUIL DE PATHOLOGIE")
+        fig.add_hrect(y0=0, y1=0.45, fillcolor="red", opacity=0.15)
+        
+        fig.update_layout(template="plotly_dark", height=400, yaxis_title="Valeur H (0-1)", xaxis_title="Profondeur Tiers Apical")
+        st.plotly_chart(fig, use_container_width=True)
 
-        # Graphe Apical (Cyan)
-        fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(y=H_apical, name="Tiers Apical", line=dict(color='cyan', width=5)))
-        fig2.add_shape(type="line", x0=0, y0=0.45, x1=len(H_apical), y1=0.45, line=dict(color="white", dash="dash"))
-        fig2.update_layout(template="plotly_dark", height=250, margin=dict(t=10, b=10), xaxis_title="Progression %", yaxis_title="Densité H")
-        st.plotly_chart(fig2, use_container_width=True)
-
-   # --- 6. RAPPORT D'EXPERTISE CAD (VALIDATION DU VERDICT) ---
     st.divider()
-    statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
     
-    # Analyse experte du point blanc
-    precision_apex = "Validée (Position terminale)" if y_apex > (h * 0.7) else "À vérifier (Position haute)"
+    # --- GÉNÉRATION DU RAPPORT ---
+    if st.button("🚀 LANCER L'EXPERTISE FINALE"):
+        with st.spinner('Analyse matricielle du tiers apical...'):
+            time.sleep(1)
+            status = "✅ SAIN (CONFORME)" if h_apex_final >= 0.45 else "🚨 PATHOLOGIQUE (NON CONFORME)"
+            color_res = st.success if h_apex_final >= 0.45 else st.error
+            
+            color_res(f"## {status}")
+            
+            rapport = f"""
+            RAPPORT D'EXPERTISE DENTAIRE (CAD SYSTEM)
+            ------------------------------------------
+            DENT ANALYSÉE : Dent 16 (Molaire Sup.)
+            ZONE ISOLÉE : Tiers Apical (Segmentation Oblique)
+            AXE X RECENTRÉ : {x_apex} (Correction Auto)
+            FENÊTRE Y : {y_start_tiers} ➔ {y_apex_point}
+            ------------------------------------------
+            VALEUR H APEX : {h_apex_final:.2f}
+            SEUIL CRITIQUE : 0.45
+            ------------------------------------------
+            CONCLUSION : {"Étanchéité optimale" if h_apex_final >= 0.45 else "Rupture d'étanchéité / Lésion détectée"}
+            """
+            st.code(rapport)
+            st.download_button("📥 Télécharger le rapport", rapport, file_name="expertise_dent16.txt")
 
-    rapport_expert = f"""
-    RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD v3.0
-    --------------------------------------------------
-    UNITÉ D'ANALYSE    : Cabinet Dentaire Universitaire
-    PROJET             : Master Diagnostic IA - Dent 16
-    --------------------------------------------------
-    
-    [1] DONNÉES DE LOCALISATION :
-    - Axe de forage (X) : {x_c} px
-    - Limite Coronaire  : {y_haut} px
-    - Cible Apicale     : {y_apex} px (POINT BLANC)
-    - Précision Apex    : {precision_apex}
-    
-    [2] ANALYSE DE DENSITÉ (ZONE CYAN) :
-    - Indice H final    : {h_final:.4f}
-    - Seuil de sécurité : 0.45
-    
-    --------------------------------------------------
-    [3] VALIDATION DU VERDICT :
-    DIAGNOSTIC FINAL    : {statut}
-    --------------------------------------------------
-    
-    INTERPRÉTATION CLINIQUE :
-    "L'obturation est montée jusqu'au Point Blanc avec une 
-    densité suffisante (H > 0.45). Le repère visuel blanc 
-    confirme l'absence de sous-obturation et garantit 
-    l'étanchéité du tiers apical."
-    """
-
-    st.subheader("📝 Bilan Expert CAD")
-    
-    # Affichage en bloc de code pour une lecture totale et pro
-    st.code(rapport_expert, language="text")
-    
-    # Bouton de téléchargement
-    st.download_button(
-        label="💾 Générer l'Attestation d'Expertise (.txt)",
-        data=rapport_expert,
-        file_name=f"Expertise_CAD_Dent16.txt",
-        mime="text/plain"
-    )
+    # --- NOTE POUR LE JURY ---
+    st.info("### 📘 Méthodologie de Master")
+    st.write(f"""
+    1. **Localisation :** Le système a détecté l'axe de la racine à **{x_apex}** pixels.
+    2. **Isolation :** Analyse exclusive des derniers 33% de la racine (Tiers Apical).
+    3. **Expertise :** Comparaison de la valeur H finale au seuil de **0.45**. 
+       Une valeur de **{h_apex_final:.2f}** a été trouvée.
+    """)
+else:
+    st.info("💡 En attente d'une radio RVG sur le PC TOSHIBA...")
