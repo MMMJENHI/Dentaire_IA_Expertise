@@ -2,7 +2,7 @@
 
 ### 📲 Accès Direct Mobile
 
-### 📲 Accès Direct Mobile
+
 ![Lien vers l'application](qr-code.png)
 
 [Cliquez ici pour ouvrir l'application](https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/)
