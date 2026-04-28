@@ -22,13 +22,12 @@ def preprocess_image(image):
 def smooth(sig):
     if len(sig) > 5:
         w_len = 11 if len(sig) > 11 else (len(sig)-1 if len(sig)%2==0 else len(sig))
-        # Normalisation stricte entre 0 et 1
         res = savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
         return np.clip(res, 0, 1)
     return np.clip(sig / 255.0, 0, 1)
 
 # --- 3. LOGO & IDENTITÉ ---
-# Icône Dentaire uniquement
+# Remplacement définitif : Icône Dentaire pour Expertise Dent 16
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3774/3774278.png", width=80)
 st.sidebar.markdown(f"### 👨‍🔬 Expert : JENHI .M")
 st.sidebar.divider()
@@ -72,8 +71,9 @@ if raw_img is not None:
 
     if y_apex <= y_haut: y_apex = y_haut + 20
     
-    # CALCULS MATHÉMATIQUES
+    # CALCULS MATHÉMATIQUES POUR LE RAPPORT
     longueur_canal = y_apex - y_haut
+    # Formule mathématique du tiers apical
     y_tiers_debut = int(y_haut + (longueur_canal * 0.66))
     nb_pixels_cyan = y_apex - y_tiers_debut
     
@@ -115,14 +115,14 @@ if raw_img is not None:
         """, unsafe_allow_html=True)
 
     with col_graphs:
-        # Courbe 1: PROFIL DE DENSITÉ GLOBAL (Échelle 0 à 1)
+        # Courbe 1: PROFIL DE DENSITÉ GLOBAL (0 à 1)
         fig1 = go.Figure()
         fig1.add_trace(go.Scatter(x=np.arange(y_haut, y_apex), y=H_global, name="Global", line=dict(color='red', width=3)))
         fig1.update_layout(template="plotly_dark", height=250, title="Profil de Densité Global", 
                           yaxis=dict(title="Densité H (0.0 à 1.0)", range=[0, 1]))
         st.plotly_chart(fig1, use_container_width=True)
 
-        # Courbe 2: TIERS APICAL (Échelle 0 à 1)
+        # Courbe 2: TIERS APICAL (0 à 1)
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(y=H_apical, name="Tiers Apical", line=dict(color='cyan', width=5)))
         fig2.add_hline(y=0.45, line_dash="dash", line_color="white", annotation_text="SEUIL (0.45)")
@@ -152,7 +152,7 @@ if raw_img is not None:
     - Formule Y_apex    : Y_apex = Y_haut + Longueur_Canal
     - Précision Apex    : {precision_apex}
     
-    [2] ANALYSE DE DENSITÉ (ÉCHELLE 0 À 1) :
+    [2] ANALYSE DE DENSITÉ (NORMALISÉE 0-1) :
     - Indice H final    : {h_final:.4f}
     - Indice H maximum  : {h_max:.4f}
     - Seuil de sécurité : 0.45
@@ -160,7 +160,8 @@ if raw_img is not None:
     --------------------------------------------------
     [3] VALIDATION DU VERDICT :
     - Longueur du Canal : {longueur_canal} px
-    - Segment Apical    : [{y_tiers_debut} px - {y_apex} px]
+    - Début Tiers Apical: {y_haut} + ({longueur_canal} * 0.66) = {y_tiers_debut} px
+    - Segment d'Expertise: [{y_tiers_debut} px - {y_apex} px]
     - Pixels analysés   : {nb_pixels_cyan} px
     - Ratio de sécurité : {ratio_securite:.1f} %
     
@@ -168,9 +169,9 @@ if raw_img is not None:
     --------------------------------------------------
     
     INTERPRÉTATION CLINIQUE :
-    "L'obturation est mesurée sur une échelle normalisée [0, 1]. 
-    La valeur finale de {h_final:.4f} au point Y_apex ({y_apex} px) 
-    valide l'herméticité apicale avec un ratio de {ratio_securite:.1f}%."
+    "L'obturation est validée sur une longueur de {longueur_canal} px. 
+    L'analyse du tiers apical (Cyan) débute à {y_tiers_debut} px. 
+    La densité finale de {h_final:.4f} confirme l'étanchéité de la Dent 16."
     """
 
     st.subheader("📝 Bilan Expert CAD")
