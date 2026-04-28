@@ -1,6 +1,8 @@
 # 🦷 IA Expertise Dentaire - Master (Analyse de la Dent 16)
 
-<img width="370" height="370" alt="qrcode" src="https://dentaireiaexpertiseia.streamlit.app/" />
+<img width="400" height="400" alt="qrcode" src="https://github.com/user-attachments/assets/d792ee06-0386-4316-844c-5c13ca781df8" />
+
+
 
 
 
