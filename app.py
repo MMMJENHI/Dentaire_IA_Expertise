@@ -171,8 +171,13 @@ st.sidebar.image(logo_url, width=100)
 st.sidebar.divider()
 
 # --- CONFIGURATION TECHNIQUE DU LIEN (QR CODE) ---
-url_app = "https://ia-expertise-dentaire-2026.streamlit.app/"
-qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
+# --- CONFIGURATION OFFICIELLE (Lien GitHub <-> Streamlit) ---
+# En changeant cette variable, le QR Code se met à jour dynamiquement
+url_officielle = "https://dentaireiaexpertiseia.streamlit.app/"
 
-st.sidebar.image(qr_api, caption="Scanner pour Accès Mobile")
-st.sidebar.divider()
+# Génération dynamique du QR via l'API (pour le README et la Sidebar)
+qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={url_officielle}"
+
+# Affichage dans la barre latérale
+st.sidebar.image(qr_api, caption="Scanner pour Accès Mobile Officiel")
+st.sidebar.markdown(f"[Lien direct vers l'App]({url_officielle})")
