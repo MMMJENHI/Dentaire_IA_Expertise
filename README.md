@@ -33,4 +33,22 @@ Cette version intègre des algorithmes avancés de traitement du signal et d'ima
 - `dent.jpg` : Image échantillon pour les tests de démonstration.
 
 ---
+# --- LÉGENDE HAUTE VISIBILITÉ ---
+        st.markdown("""
+        <div style="background-color: #1a1a1a; padding: 20px; border-radius: 15px; border: 2px solid #00fbff;">
+            <h3 style="margin-top:0; color: #00fbff; text-align: center;">📊 TABLEAU DE BORD EXPERT</h3>
+            <p style="font-size: 1.2em; margin: 10px 0;">
+                <b style="color: #FF0000; text-shadow: 0 0 10px red;">━━━━</b> 
+                <b style="color: white;">SCAN GLOBAL :</b> Continuité du canal
+            </p>
+            <p style="font-size: 1.2em; margin: 10px 0;">
+                <b style="color: #00FFFF; text-shadow: 0 0 10px cyan;">━━━━</b> 
+                <b style="color: white;">ZONE CYAN :</b> Expertise du Tiers Apical
+            </p>
+            <p style="font-size: 1.2em; margin: 10px 0;">
+                <span style="color: white; background-color: white; border-radius: 50%; padding: 0 8px; box-shadow: 0 0 15px white;">.</span> 
+                <b style="color: white; margin-left: 10px;">POINT BLANC :</b> Apex Cible (Étanchéité Totale)
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 **Développé dans le cadre d'un projet de Master | 2026**
