@@ -55,8 +55,9 @@ if raw_img is not None:
 
     st.sidebar.header("📍 Paramètres CAD")
     
-    url_app = "https://dentaireiaexpertise-eg4mdsd9cguhyhc4idk7rn.streamlit.app/"
-    qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
+   # --- LIEN UNIQUE ET OFFICIEL ---
+   url_app = "https://ia-expertise-dentaire-2026.streamlit.app/" # <--- METTRE LA BONNE ICI
+   qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
     st.sidebar.image(qr_api, caption="Lien Mobile")
     st.sidebar.divider()
 
