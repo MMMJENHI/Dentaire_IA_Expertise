@@ -149,3 +149,27 @@ if raw_img is not None:
     st.subheader("📝 Bilan Expert CAD")
     st.code(rapport_expert, language="text")
     st.download_button(label="💾 Générer l'Attestation d'Expertise (.txt)", data=rapport_expert, file_name=f"Expertise_CAD_Dent16.txt", mime="text/plain")
+
+# --- CONFIGURATION DE LA PAGE ---
+st.set_page_config(page_title="IA Expertise Dentaire - JENHI .M", layout="wide")
+
+# --- LOGO ET NOM D'AUTEUR DANS LA BARRE LATÉRALE ---
+# On place ceci tout en haut de la barre latérale
+st.sidebar.markdown("""
+    <div style="text-align: center;">
+        <h2 style="color: #00fbff; margin-bottom: 0;">JENHI .M</h2>
+        <p style="font-size: 0.8em; color: gray;">Expertise IA Dentaire | Master 2026</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Ajout d'un logo (Utilisez une icône dentaire par défaut ou votre propre URL)
+logo_url = "https://cdn-icons-png.flaticon.com/512/3774/3774278.png" 
+st.sidebar.image(logo_url, width=100)
+st.sidebar.divider()
+
+# --- CONFIGURATION TECHNIQUE DU LIEN (QR CODE) ---
+url_app = "https://ia-expertise-dentaire-2026.streamlit.app/"
+qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
+
+st.sidebar.image(qr_api, caption="Scanner pour Accès Mobile")
+st.sidebar.divider()
