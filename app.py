@@ -16,7 +16,6 @@ st.set_page_config(page_title="CAD IA Dentaire Expert - JENHI .M", layout="wide"
 # --- 2. FONCTIONS TECHNIQUES ---
 def preprocess_image(image):
     img_array = np.array(image.convert('L'))
-    # Amélioration du contraste pour mieux voir la gutta-percha
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
     return clahe.apply(img_array)
 
@@ -26,10 +25,9 @@ def smooth(sig):
         return savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
     return sig / 255.0
 
-# --- 3. CHARGEMENT DE LA RADIO & IDENTITÉ ---
-# Ajout du Logo et de l'Expert
+# --- 3. LOGO & IDENTITÉ ---
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3774/3774278.png", width=80)
-st.sidebar.markdown("### 👨‍🔬 Expert : JENHI .M")
+st.sidebar.markdown(f"### 👨‍🔬 Expert : JENHI .M")
 st.sidebar.divider()
 
 st.title("🦷 CAD System : Expertise Double Échelle (Dent 16)")
@@ -46,22 +44,20 @@ elif source_radio == "URL/GitHub":
         try:
             res = requests.get(url_input, timeout=5)
             raw_img = Image.open(BytesIO(res.content))
-        except: st.error("Lien invalide ou erreur réseau")
+        except: st.error("Lien invalide")
 else:
     try:
         raw_img = Image.open("dent.jpg")
     except:
-        st.error("Fichier 'dent.jpg' absent du dépôt.")
+        st.error("Fichier 'dent.jpg' absent.")
         st.stop()
 
-# --- 4. TRAITEMENT ET ANALYSE ---
+# --- 4. TRAITEMENT ---
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
-    st.sidebar.header("📍 Paramètres CAD")
-    
-    # QR CODE via API (Mis à jour avec votre URL Streamlit officielle)
+    # QR CODE DYNAMIQUE
     url_app = "https://dentaireiaexpertiseia.streamlit.app/"
     qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
     st.sidebar.image(qr_api, caption="Lien Mobile Officiel")
@@ -71,13 +67,9 @@ if raw_img is not None:
     y_haut = st.sidebar.slider("Haut Canal (Y)", 0, h, int(h*0.2))
     y_apex = st.sidebar.slider("Y_apex (Point Final)", 0, h, int(h*0.8))
 
-    # Sécurité anti-disparition
     if y_apex <= y_haut: y_apex = y_haut + 20
-
-    # Calcul du Tiers Apical (33% finaux)
     y_tiers_debut = int(y_haut + (y_apex - y_haut) * 0.66)
     
-    # Signaux
     signal_global = profile_line(img_gray, (y_haut, x_c), (y_apex, x_c), linewidth=3)
     signal_apical = profile_line(img_gray, (y_tiers_debut, x_c), (y_apex, x_c), linewidth=5)
 
@@ -91,40 +83,37 @@ if raw_img is not None:
     with col_img:
         st.subheader("🔎 Visualisation CAD")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-        # Rouge : Global | Cyan (255,255,0) : Apical | Blanc : Apex
-        cv2.line(img_visu, (x_c - 15, y_haut), (x_c - 15, y_apex), (255, 0, 0), 3)
-        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 12)
-        cv2.circle(img_visu, (x_c, y_apex), 15, (255, 255, 255), -1) 
+        cv2.line(img_visu, (x_c - 15, y_haut), (x_c - 15, y_apex), (255, 0, 0), 3) # Rouge
+        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 12) # Cyan
+        cv2.circle(img_visu, (x_c, y_apex), 15, (255, 255, 255), -1) # Blanc
         st.image(img_visu, use_container_width=True)
 
-        # --- LÉGENDE TECHNIQUE ---
+        # --- LÉGENDE HAUTE DÉFINITION (NETTE) ---
         st.markdown("""
-        **LÉGENDE D'ANALYSE :**
-        * 🔴 **Ligne Rouge :** Profil global de l'obturation.
-        * 🔵 **Zone Cyan :** Focus Tiers Apical (Expertise).
-        * ⚪ **Point Blanc :** Apex (Cible terminale).
-        """)
+        <div style="background-color: #262730; padding: 15px; border-radius: 10px; border: 1px solid #464b5d;">
+            <h4 style="margin-top:0; color: white;">LÉGENDE D'ANALYSE</h4>
+            <p style="margin: 5px 0;"><b style="color: #FF0000;">━━</b> <b>Tracé Rouge :</b> Profil global du canal</p>
+            <p style="margin: 5px 0;"><b style="color: #00FFFF;">━━</b> <b>Zone Cyan :</b> Tiers Apical (Analyse critique)</p>
+            <p style="margin: 5px 0;"><b style="color: #FFFFFF; background-color: #555; border-radius: 50%; padding: 2px 6px;">●</b> <b>Point Blanc :</b> Apex cible (Étanchéité)</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col_graphs:
-        # Graphe Global (Rouge)
         fig1 = go.Figure()
         fig1.add_trace(go.Scatter(x=np.arange(y_haut, y_apex), y=H_global, name="Global", line=dict(color='red', width=3)))
-        fig1.update_layout(template="plotly_dark", height=250, margin=dict(t=10, b=10), xaxis_title="Y (Pixels)", yaxis_title="Densité H", title="Scan Canal Complet")
+        fig1.update_layout(template="plotly_dark", height=250, title="Scan Global", yaxis_title="Densité H")
         st.plotly_chart(fig1, use_container_width=True)
 
-        # Graphe Apical (Cyan)
         fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(y=H_apical, name="Tiers Apical", line=dict(color='cyan', width=5)))
+        fig2.add_trace(go.Scatter(y=H_apical, name="Apical", line=dict(color='cyan', width=5)))
         fig2.add_shape(type="line", x0=0, y0=0.45, x1=len(H_apical), y1=0.45, line=dict(color="white", dash="dash"))
-        fig2.update_layout(template="plotly_dark", height=250, margin=dict(t=10, b=10), xaxis_title="Progression %", yaxis_title="Densité H", title="Expertise Zone Apicale")
+        fig2.update_layout(template="plotly_dark", height=250, title="Expertise Tiers Apical", yaxis_title="Densité H")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. RAPPORT D'EXPERTISE CAD (STRICTEMENT CONSERVÉ) ---
+    # --- 6. RAPPORT & VERDICT (PRÉSERVÉ) ---
     st.divider()
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
-    
-    # Analyse experte du point blanc
-    precision_apex = "Validée (Position terminale)" if y_apex > (h * 0.7) else "À vérifier (Position haute)"
+    precision_apex = "Validée (Position terminale)" if y_apex > (h * 0.7) else "À vérifier"
 
     rapport_expert = f"""
     RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD v3.0
@@ -136,7 +125,6 @@ if raw_img is not None:
     
     [1] DONNÉES DE LOCALISATION :
     - Axe de forage (X) : {x_c} px
-    - Limite Coronaire  : {y_haut} px
     - Cible Apicale     : {y_apex} px (POINT BLANC)
     - Précision Apex    : {precision_apex}
     
@@ -157,14 +145,10 @@ if raw_img is not None:
     """
 
     st.subheader("📝 Bilan Expert CAD")
-    
-    # Affichage en bloc de code pour une lecture totale et pro
     st.code(rapport_expert, language="text")
     
-    # Bouton de téléchargement
     st.download_button(
-        label="💾 Générer l'Attestation d'Expertise (.txt)",
+        label="💾 Générer l'Attestation (.txt)",
         data=rapport_expert,
-        file_name=f"Expertise_CAD_JENHI.txt",
-        mime="text/plain"
+        file_name=f"Expertise_CAD_JENHI.txt"
     )
