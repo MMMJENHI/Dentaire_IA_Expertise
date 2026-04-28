@@ -51,14 +51,16 @@ else:
 # --- 4. TRAITEMENT ET ANALYSE ---
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
-    h, w = img_gray.shape
+    h_img, w_img = img_gray.shape
 
-    st.sidebar.header("📍 Paramètres CAD")
+    st.sidebar.divider()
+    st.sidebar.header("📍 Paramètres & QR")
+
+    # --- VÉRIFIEZ L'ALIGNEMENT ICI ---
+    url_app = "https://ia-expertise-dentaire-2026.streamlit.app/"
+    qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
     
-   # --- LIEN UNIQUE ET OFFICIEL ---
-   url_app = "https://ia-expertise-dentaire-2026.streamlit.app/" # <--- METTRE LA BONNE ICI
-   qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
-    st.sidebar.image(qr_api, caption="Lien Mobile")
+    st.sidebar.image(qr_api, caption="Scanner pour Accès Mobile")
     st.sidebar.divider()
 
     x_c = st.sidebar.slider("Position X (Axe)", 0, w, int(w/2))
