@@ -77,25 +77,37 @@ if raw_img is not None:
     H_apical = smooth(signal_apical)
     h_final = H_apical[-1]
 
-    # --- 5. VISUALISATION ---
+    # --- 5. VISUALISATION COMBINÉE ---
     col_img, col_graphs = st.columns([1, 1.5])
 
     with col_img:
         st.subheader("🔎 Visualisation CAD")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-        cv2.line(img_visu, (x_c - 15, y_haut), (x_c - 15, y_apex), (255, 0, 0), 3) # Rouge
-        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 12) # Cyan
-        cv2.circle(img_visu, (x_c, y_apex), 15, (255, 255, 255), -1) # Blanc
+        
+        # --- DESSINS ULTRA-VISIBLES ---
+        # Rouge Épais (Global)
+        cv2.line(img_visu, (x_c - 20, y_haut), (x_c - 20, y_apex), (255, 0, 0), 6) 
+        # Cyan Fluorescent (Tiers Apical)
+        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 15) 
+        # Blanc Pur (Apex) - Très Blanc et Large
+        cv2.circle(img_visu, (x_c, y_apex), 22, (255, 255, 255), -1) 
+        
         st.image(img_visu, use_container_width=True)
 
-        # --- LÉGENDE HAUTE DÉFINITION (NETTE) ---
+        # --- LÉGENDE GÉANTE (NETTE ET CONTRASTÉE) ---
         st.markdown("""
-        <div style="background-color: #262730; padding: 15px; border-radius: 10px; border: 1px solid #464b5d;">
-            <h4 style="margin-top:0; color: white;">LÉGENDE D'ANALYSE</h4>
-            <p style="margin: 5px 0;"><b style="color: #FF0000;">━━</b> <b>Tracé Rouge :</b> Profil global du canal</p>
-            <p style="margin: 5px 0;"><b style="color: #00FFFF;">━━</b> <b>Zone Cyan :</b> Tiers Apical (Analyse critique)</p>
-            <p style="margin: 5px 0;"><b style="color: #FFFFFF; background-color: #555; border-radius: 50%; padding: 2px 6px;">●</b> <b>Point Blanc :</b> Apex cible (Étanchéité)</p>
+        <div style="background-color: #000000; padding: 25px; border-radius: 15px; border: 3px solid #ffffff; line-height: 1.8;">
+            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+                <span style="color: #FF0000;">━━</span> <span style="color: white;">PROFIL GLOBAL (ROUGE)</span>
+            </p>
+            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+                <span style="color: #00FFFF;">━━</span> <span style="color: white;">TIERS APICAL (CYAN)</span>
+            </p>
+            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+                <span style="color: white; border: 2px solid white; border-radius: 50%; padding: 0 10px;">●</span> <span style="color: white;">APEX CIBLE (TRÈS BLANC)</span>
+            </p>
         </div>
+        <br>
         """, unsafe_allow_html=True)
 
     with col_graphs:
@@ -110,7 +122,7 @@ if raw_img is not None:
         fig2.update_layout(template="plotly_dark", height=250, title="Expertise Tiers Apical", yaxis_title="Densité H")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. RAPPORT & VERDICT (PRÉSERVÉ) ---
+    # --- 6. RAPPORT & VERDICT (CONSERVÉ) ---
     st.divider()
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
     precision_apex = "Validée (Position terminale)" if y_apex > (h * 0.7) else "À vérifier"
@@ -125,6 +137,7 @@ if raw_img is not None:
     
     [1] DONNÉES DE LOCALISATION :
     - Axe de forage (X) : {x_c} px
+    - Limite Coronaire  : {y_haut} px
     - Cible Apicale     : {y_apex} px (POINT BLANC)
     - Précision Apex    : {precision_apex}
     
@@ -152,3 +165,5 @@ if raw_img is not None:
         data=rapport_expert,
         file_name=f"Expertise_CAD_JENHI.txt"
     )
+else:
+    st.info("💡 En attente du chargement d'une radio.")
