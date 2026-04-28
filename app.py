@@ -22,11 +22,13 @@ def preprocess_image(image):
 def smooth(sig):
     if len(sig) > 5:
         w_len = 11 if len(sig) > 11 else (len(sig)-1 if len(sig)%2==0 else len(sig))
-        return savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
-    return sig / 255.0
+        # Normalisation stricte entre 0 et 1
+        res = savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
+        return np.clip(res, 0, 1)
+    return np.clip(sig / 255.0, 0, 1)
 
 # --- 3. LOGO & IDENTITÉ ---
-# Remplacement de l'image par une icône de dent (3774278)
+# Icône Dentaire uniquement
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3774/3774278.png", width=80)
 st.sidebar.markdown(f"### 👨‍🔬 Expert : JENHI .M")
 st.sidebar.divider()
@@ -70,7 +72,7 @@ if raw_img is not None:
 
     if y_apex <= y_haut: y_apex = y_haut + 20
     
-    # CALCULS MATHÉMATIQUES POUR LE RAPPORT
+    # CALCULS MATHÉMATIQUES
     longueur_canal = y_apex - y_haut
     y_tiers_debut = int(y_haut + (longueur_canal * 0.66))
     nb_pixels_cyan = y_apex - y_tiers_debut
@@ -83,7 +85,6 @@ if raw_img is not None:
     h_final = float(H_apical[-1])
     h_max = float(np.max(H_apical))
     
-    # CALCUL DU RATIO DE SÉCURITÉ
     ratio_securite = (h_final / 0.45) * 100
 
     # --- 5. VISUALISATION COMBINÉE ---
@@ -111,23 +112,24 @@ if raw_img is not None:
                 <span style="color: white; border: 2px solid white; border-radius: 50%; padding: 0 10px;">●</span> <span style="color: white;">APEX CIBLE (TRÈS BLANC)</span>
             </p>
         </div>
-        <br>
         """, unsafe_allow_html=True)
 
     with col_graphs:
-        # Courbe 1: PROFIL DE DENSITÉ GLOBAL
+        # Courbe 1: PROFIL DE DENSITÉ GLOBAL (Échelle 0 à 1)
         fig1 = go.Figure()
         fig1.add_trace(go.Scatter(x=np.arange(y_haut, y_apex), y=H_global, name="Global", line=dict(color='red', width=3)))
-        fig1.update_layout(template="plotly_dark", height=250, title="Profil de Densité Global", yaxis_title="Densité H")
+        fig1.update_layout(template="plotly_dark", height=250, title="Profil de Densité Global", 
+                          yaxis=dict(title="Densité H (0.0 à 1.0)", range=[0, 1]))
         st.plotly_chart(fig1, use_container_width=True)
 
-        # Courbe 2: TIERS APICAL avec SEUIL ET H FINAL
+        # Courbe 2: TIERS APICAL (Échelle 0 à 1)
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(y=H_apical, name="Tiers Apical", line=dict(color='cyan', width=5)))
         fig2.add_hline(y=0.45, line_dash="dash", line_color="white", annotation_text="SEUIL (0.45)")
         fig2.add_annotation(x=len(H_apical)-1, y=h_final, text=f"H FINAL: {h_final:.2f}", showarrow=True, arrowhead=2, bgcolor="cyan")
         
-        fig2.update_layout(template="plotly_dark", height=250, title="Analyse de Densité (Tiers Apical)", yaxis_title="Densité H")
+        fig2.update_layout(template="plotly_dark", height=250, title="Analyse de Densité (Tiers Apical)", 
+                          yaxis=dict(title="Densité H (0.0 à 1.0)", range=[0, 1]))
         st.plotly_chart(fig2, use_container_width=True)
 
     # --- 6. RAPPORT & VERDICT ---
@@ -146,10 +148,11 @@ if raw_img is not None:
     [1] DONNÉES DE LOCALISATION :
     - Axe de forage (X) : {x_c} px
     - Haut de Canal (Y) : {y_haut} px
-    - Cible Apicale     : {y_apex} px (POINT BLANC)
+    - Cible Apicale (Y) : {y_apex} px (POINT BLANC)
+    - Formule Y_apex    : Y_apex = Y_haut + Longueur_Canal
     - Précision Apex    : {precision_apex}
     
-    [2] ANALYSE DE DENSITÉ (ZONE CYAN) :
+    [2] ANALYSE DE DENSITÉ (ÉCHELLE 0 À 1) :
     - Indice H final    : {h_final:.4f}
     - Indice H maximum  : {h_max:.4f}
     - Seuil de sécurité : 0.45
@@ -165,10 +168,9 @@ if raw_img is not None:
     --------------------------------------------------
     
     INTERPRÉTATION CLINIQUE :
-    "L'obturation est montée jusqu'au Point Blanc. L'expertise 
-    du tiers apical montre une densité de {h_final:.4f}. 
-    Le ratio de sécurité de {ratio_securite:.1f}% valide l'herméticité 
-    et garantit l'étanchéité de la Dent 16."
+    "L'obturation est mesurée sur une échelle normalisée [0, 1]. 
+    La valeur finale de {h_final:.4f} au point Y_apex ({y_apex} px) 
+    valide l'herméticité apicale avec un ratio de {ratio_securite:.1f}%."
     """
 
     st.subheader("📝 Bilan Expert CAD")
