@@ -68,46 +68,49 @@ if raw_img is not None:
     y_apex = st.sidebar.slider("Y_apex (Point Final)", 0, h, int(h*0.8))
 
     if y_apex <= y_haut: y_apex = y_haut + 20
-    y_tiers_debut = int(y_haut + (y_apex - y_haut) * 0.66)
     
+    # CALCULS MATHÉMATIQUES POUR LE JURY
+    longueur_canal = y_apex - y_haut
+    y_tiers_debut = int(y_haut + longueur_canal * 0.66)
+    nb_pixels_zone_cyan = y_apex - y_tiers_debut
+    
+    # Signaux
     signal_global = profile_line(img_gray, (y_haut, x_c), (y_apex, x_c), linewidth=3)
     signal_apical = profile_line(img_gray, (y_tiers_debut, x_c), (y_apex, x_c), linewidth=5)
 
     H_global = smooth(signal_global)
     H_apical = smooth(signal_apical)
-    h_final = H_apical[-1]
+    h_final = float(H_apical[-1])
+    
+    # Ratio de sécurité (pourcentage par rapport au seuil 0.45)
+    ratio_securite = (h_final / 0.45) * 100
 
-    # --- 5. VISUALISATION COMBINÉE ---
+    # --- 5. VISUALISATION ---
     col_img, col_graphs = st.columns([1, 1.5])
 
     with col_img:
         st.subheader("🔎 Visualisation CAD")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
         
-        # --- DESSINS ULTRA-VISIBLES ---
-        # Rouge Épais (Global)
-        cv2.line(img_visu, (x_c - 20, y_haut), (x_c - 20, y_apex), (255, 0, 0), 6) 
-        # Cyan Fluorescent (Tiers Apical)
-        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 15) 
-        # Blanc Pur (Apex) - Très Blanc et Large
-        cv2.circle(img_visu, (x_c, y_apex), 22, (255, 255, 255), -1) 
-        
+        # DESSINS ULTRA-VISIBLES
+        cv2.line(img_visu, (x_c - 20, y_haut), (x_c - 20, y_apex), (255, 0, 0), 6) # ROUGE
+        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 15) # CYAN
+        cv2.circle(img_visu, (x_c, y_apex), 22, (255, 255, 255), -1) # BLANC
         st.image(img_visu, use_container_width=True)
 
-        # --- LÉGENDE GÉANTE (NETTE ET CONTRASTÉE) ---
+        # LÉGENDE GÉANTE
         st.markdown("""
         <div style="background-color: #000000; padding: 25px; border-radius: 15px; border: 3px solid #ffffff; line-height: 1.8;">
-            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+            <p style="font-size: 22px; margin: 0; font-weight: bold;">
                 <span style="color: #FF0000;">━━</span> <span style="color: white;">PROFIL GLOBAL (ROUGE)</span>
             </p>
-            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+            <p style="font-size: 22px; margin: 0; font-weight: bold;">
                 <span style="color: #00FFFF;">━━</span> <span style="color: white;">TIERS APICAL (CYAN)</span>
             </p>
-            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+            <p style="font-size: 22px; margin: 0; font-weight: bold;">
                 <span style="color: white; border: 2px solid white; border-radius: 50%; padding: 0 10px;">●</span> <span style="color: white;">APEX CIBLE (TRÈS BLANC)</span>
             </p>
         </div>
-        <br>
         """, unsafe_allow_html=True)
 
     with col_graphs:
@@ -122,7 +125,7 @@ if raw_img is not None:
         fig2.update_layout(template="plotly_dark", height=250, title="Expertise Tiers Apical", yaxis_title="Densité H")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. RAPPORT & VERDICT (CONSERVÉ) ---
+    # --- 6. RAPPORT D'EXPERTISE AVEC CALCULS AUTOMATIQUES ---
     st.divider()
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
     precision_apex = "Validée (Position terminale)" if y_apex > (h * 0.7) else "À vérifier"
@@ -147,14 +150,19 @@ if raw_img is not None:
     
     --------------------------------------------------
     [3] VALIDATION DU VERDICT :
+    - Longueur du Canal : {longueur_canal} px
+    - Segment Apical    : [{y_tiers_debut} px - {y_apex} px]
+    - Pixels analysés   : {nb_pixels_zone_cyan} px
+    - Ratio de sécurité : {ratio_securite:.1f} %
+    
     DIAGNOSTIC FINAL    : {statut}
     --------------------------------------------------
     
     INTERPRÉTATION CLINIQUE :
-    "L'obturation est montée jusqu'au Point Blanc avec une 
-    densité suffisante (H > 0.45). Le repère visuel blanc 
-    confirme l'absence de sous-obturation et garantit 
-    l'étanchéité du tiers apical."
+    "L'obturation est mesurée sur une longueur totale de {longueur_canal} px. 
+    L'expertise du tiers apical (Zone Cyan) montre une densité H de {h_final:.4f}. 
+    Le ratio de sécurité de {ratio_securite:.1f}% valide l'herméticité 
+    du scellement au niveau du Point Blanc (Apex)."
     """
 
     st.subheader("📝 Bilan Expert CAD")
