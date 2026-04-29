@@ -89,9 +89,12 @@ if raw_img is not None:
 
     # Affichage des équations pour le Jury
     st.latex(r"L_{canal} = |Y_{tenon} - Y_{apex}| = " + f"{L}")
-    st.latex(r"W_{expertise} = L \times 0.34 = " + f"{W} \text{ pixels}")
-    st.latex(r"D_{descente} = L \times 0.66 = " + f"{D} \text{ pixels}")
-
+    # --- AFFICHAGE DES ÉQUATIONS POUR LE JURY ---
+    st.latex(r"L_{canal} = |Y_{tenon} - Y_{apex}| = " + f"{L}")
+    
+    # Utilisation de f-string avec double accolades pour LaTeX
+    st.latex(f"W_{{expertise}} = L \\times 0.34 = {W} \\text{{ pixels}}")
+    st.latex(f"D_{{descente}} = L \\times 0.66 = {D} \\text{{ pixels}}")
     rapport_expert = f"""
     RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD v3.0
     --------------------------------------------------
