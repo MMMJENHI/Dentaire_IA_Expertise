@@ -27,7 +27,6 @@ def smooth(sig):
     return np.clip(sig / 255.0, 0, 1)
 
 # --- 3. LOGO & IDENTITÉ ---
-# Remplacement définitif : Icône Dentaire pour Expertise Dent 16
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3774/3774278.png", width=80)
 st.sidebar.markdown(f"### 👨‍🔬 Expert : JENHI .M")
 st.sidebar.divider()
@@ -59,21 +58,13 @@ if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
-    # QR CODE DYNAMIQUE
-    url_app = "https://dentaireiaexpertiseia.streamlit.app/"
-    qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
-    st.sidebar.image(qr_api, caption="Lien Mobile Officiel")
-    st.sidebar.divider()
-
     x_c = st.sidebar.slider("Position X (Axe)", 0, w, int(w/2))
     y_haut = st.sidebar.slider("Haut de Canal (Y)", 0, h, int(h*0.2))
     y_apex = st.sidebar.slider("Y_apex (Bas de Canal)", 0, h, int(h*0.8))
 
     if y_apex <= y_haut: y_apex = y_haut + 20
     
-    # CALCULS MATHÉMATIQUES POUR LE RAPPORT
     longueur_canal = y_apex - y_haut
-    # Formule mathématique du tiers apical
     y_tiers_debut = int(y_haut + (longueur_canal * 0.66))
     nb_pixels_cyan = y_apex - y_tiers_debut
     
@@ -87,100 +78,60 @@ if raw_img is not None:
     
     ratio_securite = (h_final / 0.45) * 100
 
-    # --- 5. VISUALISATION COMBINÉE ---
     col_img, col_graphs = st.columns([1, 1.5])
 
     with col_img:
         st.subheader("🔎 Visualisation CAD")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-        
-        cv2.line(img_visu, (x_c - 20, y_haut), (x_c - 20, y_apex), (255, 0, 0), 6) # ROUGE
-        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 15) # CYAN
-        cv2.circle(img_visu, (x_c, y_apex), 22, (255, 255, 255), -1) # BLANC
-        
+        cv2.line(img_visu, (x_c - 20, y_haut), (x_c - 20, y_apex), (255, 0, 0), 6) 
+        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 15) 
+        cv2.circle(img_visu, (x_c, y_apex), 22, (255, 255, 255), -1) 
         st.image(img_visu, use_container_width=True)
 
-        st.markdown("""
-        <div style="background-color: #000000; padding: 25px; border-radius: 15px; border: 3px solid #ffffff; line-height: 1.8;">
-            <p style="font-size: 24px; margin: 0; font-weight: bold;">
-                <span style="color: #FF0000;">━━</span> <span style="color: white;">PROFIL GLOBAL (ROUGE)</span>
-            </p>
-            <p style="font-size: 24px; margin: 0; font-weight: bold;">
-                <span style="color: #00FFFF;">━━</span> <span style="color: white;">TIERS APICAL (CYAN)</span>
-            </p>
-            <p style="font-size: 24px; margin: 0; font-weight: bold;">
-                <span style="color: white; border: 2px solid white; border-radius: 50%; padding: 0 10px;">●</span> <span style="color: white;">APEX CIBLE (TRÈS BLANC)</span>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
     with col_graphs:
-        # Courbe 1: PROFIL DE DENSITÉ GLOBAL (0 à 1)
+        # --- COURBE 1 : GLOBAL ---
         fig1 = go.Figure()
         fig1.add_trace(go.Scatter(x=np.arange(y_haut, y_apex), y=H_global, name="Global", line=dict(color='red', width=3)))
-        fig1.update_layout(template="plotly_dark", height=250, title="Profil de Densité Global", 
-                          yaxis=dict(title="Densité H (0.0 à 1.0)", range=[0, 1]))
+        fig1.update_layout(template="plotly_dark", height=230, title="Profil de Densité Global", 
+                          yaxis=dict(title="H (0-1)", range=[0, 1]))
         st.plotly_chart(fig1, use_container_width=True)
 
-        # Courbe 2: TIERS APICAL (0 à 1)
+        # --- COURBE 2 : TIERS APICAL AVEC ZONES (FIGURE DEMANDÉE) ---
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(y=H_apical, name="Tiers Apical", line=dict(color='cyan', width=5)))
-        fig2.add_hline(y=0.45, line_dash="dash", line_color="white", annotation_text="SEUIL (0.45)")
-        fig2.add_annotation(x=len(H_apical)-1, y=h_final, text=f"H FINAL: {h_final:.2f}", showarrow=True, arrowhead=2, bgcolor="cyan")
         
-        fig2.update_layout(template="plotly_dark", height=250, title="Analyse de Densité (Tiers Apical)", 
-                          yaxis=dict(title="Densité H (0.0 à 1.0)", range=[0, 1]))
+        # Seuil Critique Rouge
+        fig2.add_hline(y=0.45, line_dash="dash", line_color="red", line_width=3, 
+                       annotation_text="SEUIL CRITIQUE (0.45)", annotation_font_color="red")
+        
+        # Ajout des zones colorées pour le diagnostic
+        fig2.add_hrect(y0=0.45, y1=1.0, fillcolor="green", opacity=0.15, annotation_text="HERMÉTIQUE")
+        fig2.add_hrect(y0=0, y1=0.45, fillcolor="red", opacity=0.15, annotation_text="INFILTRATION")
+
+        fig2.update_layout(template="plotly_dark", height=280, title="Expertise Tiers Apical (Normalisée)", 
+                          yaxis=dict(title="Densité H", range=[0, 1]))
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. RAPPORT & VERDICT ---
+    # --- 6. RAPPORT DÉTAILLÉ ---
     st.divider()
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
-    precision_apex = "Validée (Position terminale)" if y_apex > (h * 0.7) else "À vérifier"
-
+    
     rapport_expert = f"""
     RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD v3.0
     --------------------------------------------------
     EXPERT RESPONSABLE : JENHI .M
-    UNITÉ D'ANALYSE    : Cabinet Dentaire Universitaire
-    PROJET             : Master Diagnostic IA - Dent 16
+    UNITÉ D'ANALYSE    : Faculté des Sciences - Département de Chimie FÈS
     --------------------------------------------------
+    [1] ANALYSE DE DENSITÉ APICALE :
+    - Indice H Final   : {h_final:.4f}
+    - Seuil de Sécurité: 0.45 (Ligne Rouge)
+    - Ratio de Sécurité: {ratio_securite:.1f} %
     
-    [1] DONNÉES DE LOCALISATION :
-    - Axe de forage (X) : {x_c} px
-    - Haut de Canal (Y) : {y_haut} px
-    - Cible Apicale (Y) : {y_apex} px (POINT BLANC)
-    - Formule Y_apex    : Y_apex = Y_haut + Longueur_Canal
-    - Précision Apex    : {precision_apex}
+    [2] VALIDATION DU VERDICT :
+    DIAGNOSTIC FINAL   : {statut}
     
-    [2] ANALYSE DE DENSITÉ (NORMALISÉE 0-1) :
-    - Indice H final    : {h_final:.4f}
-    - Indice H maximum  : {h_max:.4f}
-    - Seuil de sécurité : 0.45
-    
-    --------------------------------------------------
-    [3] VALIDATION DU VERDICT :
-    - Longueur du Canal : {longueur_canal} px
-    - Début Tiers Apical: {y_haut} + ({longueur_canal} * 0.66) = {y_tiers_debut} px
-    - Segment d'Expertise: [{y_tiers_debut} px - {y_apex} px]
-    - Pixels analysés   : {nb_pixels_cyan} px
-    - Ratio de sécurité : {ratio_securite:.1f} %
-    
-    DIAGNOSTIC FINAL    : {statut}
-    --------------------------------------------------
-    
-    INTERPRÉTATION CLINIQUE :
-    "L'obturation est validée sur une longueur de {longueur_canal} px. 
-    L'analyse du tiers apical (Cyan) débute à {y_tiers_debut} px. 
-    La densité finale de {h_final:.4f} confirme l'étanchéité de la Dent 16."
+    CONCLUSION : 
+    "L'analyse montre que la courbe de densité se maintient dans la zone VERTE (Hermétique).
+    Le ratio de {ratio_securite:.1f}% infirme l'hypothèse d'une infiltration au point Y_apex."
     """
-
-    st.subheader("📝 Bilan Expert CAD")
-    st.code(rapport_expert, language="text")
-    
-    st.download_button(
-        label="💾 Générer l'Attestation (.txt)",
-        data=rapport_expert,
-        file_name=f"Expertise_CAD_JENHI.txt"
-    )
-else:
-    st.info("💡 En attente du chargement d'une radio.")
+    st.code(rapport_expert)
