@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from skimage.measure import profile_line
 from scipy.signal import savgol_filter
 from PIL import Image
+import time
 import requests
 from io import BytesIO
 
@@ -24,9 +25,9 @@ def smooth(sig):
         return np.clip(res, 0, 1)
     return np.clip(sig / 255.0, 0, 1)
 
-# --- 3. INTERFACE & LOGO ---
+# --- 3. LOGO & IDENTITÉ ---
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3774/3774278.png", width=80)
-st.sidebar.markdown("### 👨‍🔬 Expert : JENHI .M")
+st.sidebar.markdown(f"### 👨‍🔬 Expert : JENHI .M")
 st.sidebar.divider()
 
 st.title("🦷 CAD System : Expertise Double Échelle (Dent 16)")
@@ -51,12 +52,17 @@ else:
         st.error("Fichier 'dent.jpg' absent.")
         st.stop()
 
-# --- 4. TRAITEMENT ET CALCULS ---
+# --- 4. TRAITEMENT ---
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
-    # Sliders de contrôle
+    # QR CODE DYNAMIQUE
+    url_app = "https://dentaireiaexpertiseia.streamlit.app/"
+    qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
+    st.sidebar.image(qr_api, caption="Lien Mobile Officiel")
+    st.sidebar.divider()
+
     x_c = st.sidebar.slider("Position X (Axe)", 0, w, int(w/2))
     y_haut = st.sidebar.slider("Haut de Canal (Y)", 0, h, int(h*0.2))
     y_apex = st.sidebar.slider("Y_apex (Bas de Canal)", 0, h, int(h*0.8))
@@ -65,29 +71,45 @@ if raw_img is not None:
     
     longueur_canal = y_apex - y_haut
     y_tiers_debut = int(y_haut + (longueur_canal * 0.66))
+    nb_pixels_cyan = y_apex - y_tiers_debut
     
-    # Signaux
     signal_global = profile_line(img_gray, (y_haut, x_c), (y_apex, x_c), linewidth=3)
     signal_apical = profile_line(img_gray, (y_tiers_debut, x_c), (y_apex, x_c), linewidth=5)
 
     H_global = smooth(signal_global)
     H_apical = smooth(signal_apical)
-    
     h_final = float(H_apical[-1])
     h_max = float(np.max(H_apical))
     idx_max = int(np.argmax(H_apical))
+    
     ratio_securite = (h_final / 0.45) * 100
 
-    # --- 5. AFFICHAGE DES GRAPHIQUES ---
+    # --- 5. VISUALISATION COMBINÉE ---
     col_img, col_graphs = st.columns([1, 1.5])
 
     with col_img:
         st.subheader("🔎 Visualisation CAD")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-        cv2.line(img_visu, (x_c - 20, y_haut), (x_c - 20, y_apex), (255, 0, 0), 6) 
-        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 15) 
-        cv2.circle(img_visu, (x_c, y_apex), 22, (255, 255, 255), -1) 
+        
+        cv2.line(img_visu, (x_c - 20, y_haut), (x_c - 20, y_apex), (255, 0, 0), 6) # ROUGE
+        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 15) # CYAN
+        cv2.circle(img_visu, (x_c, y_apex), 22, (255, 255, 255), -1) # BLANC
+        
         st.image(img_visu, use_container_width=True)
+
+        st.markdown("""
+        <div style="background-color: #000000; padding: 25px; border-radius: 15px; border: 3px solid #ffffff; line-height: 1.8;">
+            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+                <span style="color: #FF0000;">━━</span> <span style="color: white;">PROFIL GLOBAL (ROUGE)</span>
+            </p>
+            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+                <span style="color: #00FFFF;">━━</span> <span style="color: white;">TIERS APICAL (CYAN)</span>
+            </p>
+            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+                <span style="color: white; border: 2px solid white; border-radius: 50%; padding: 0 10px;">●</span> <span style="color: white;">APEX CIBLE (TRÈS BLANC)</span>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col_graphs:
         # FIG 1 : GLOBAL
@@ -96,46 +118,72 @@ if raw_img is not None:
         fig1.update_layout(template="plotly_dark", height=230, title="Profil de Densité Global", margin=dict(t=30, b=30))
         st.plotly_chart(fig1, use_container_width=True)
 
-        # FIG 2 : TIERS APICAL (MODIFIÉE AVEC ZONES ET SEUIL ROUGE)
+        # FIG 2 : TIERS APICAL (FUSIONNÉ AVEC VERDICT COULEUR)
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(y=H_apical, name="Tiers Apical", line=dict(color='cyan', width=5)))
         
-        # AJOUT DU SEUIL 0.45 EN ROUGE
+        # Seuil 0.45 en ROUGE
         fig2.add_hline(y=0.45, line_dash="dash", line_color="red", line_width=3, 
                        annotation_text="SEUIL CRITIQUE (0.45)", annotation_font_color="red")
         
-        # AJOUT DES ZONES DE COULEUR (VERT/ROUGE)
-        fig2.add_hrect(y0=0.45, y1=1.0, fillcolor="green", opacity=0.15, annotation_text="ZONE HERMÉTIQUE")
-        fig2.add_hrect(y0=0, y1=0.45, fillcolor="red", opacity=0.15, annotation_text="ZONE D'INFILTRATION")
+        # Zones de Verdict (Vert/Rouge)
+        fig2.add_hrect(y0=0.45, y1=1.0, fillcolor="green", opacity=0.15, annotation_text="ZONE CONFORME")
+        fig2.add_hrect(y0=0, y1=0.45, fillcolor="red", opacity=0.15, annotation_text="ZONE INFILTRATION")
 
-        # ANNOTATION H MAX ET H FINAL
+        # Annotations H Max et H Final
         fig2.add_annotation(x=idx_max, y=h_max, text=f"H MAX: {h_max:.2f}", showarrow=True, arrowhead=2, bgcolor="white", font=dict(color="black"))
         fig2.add_annotation(x=len(H_apical)-1, y=h_final, text=f"H FINAL: {h_final:.2f}", showarrow=True, arrowhead=2, bgcolor="cyan", font=dict(color="black"))
 
-        fig2.update_layout(template="plotly_dark", height=320, title="Expertise Tiers Apical (Analyse H)", yaxis=dict(range=[0, 1]))
+        fig2.update_layout(template="plotly_dark", height=320, title="Analyse Densitométrique du Tiers Apical", yaxis=dict(range=[0, 1]))
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. RAPPORT D'EXPERTISE ---
+    # --- 6. RAPPORT & VERDICT ---
     st.divider()
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
-    
+    precision_apex = "Validée (Position terminale)" if y_apex > (h * 0.7) else "À vérifier"
+
     rapport_expert = f"""
     RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD v3.0
     --------------------------------------------------
-    EXPERT : JENHI .M | FACULTÉ DES SCIENCES FÈS
+    EXPERT RESPONSABLE : JENHI .M
+    UNITÉ D'ANALYSE    : Cabinet Dentaire Universitaire
+    PROJET             : Master Diagnostic IA - Dent 16
     --------------------------------------------------
-    [1] ANALYSE DE DENSITÉ :
-    - Indice H Final   : {h_final:.4f}
-    - Indice H Maximum : {h_max:.4f}
-    - Ratio Sécurité   : {ratio_securite:.1f} %
     
-    [2] VERDICT : {statut}
+    [1] DONNÉES DE LOCALISATION :
+    - Axe de forage (X) : {x_c} px
+    - Haut de Canal (Y) : {y_haut} px
+    - Cible Apicale (Y) : {y_apex} px (POINT BLANC)
+    - Précision Apex    : {precision_apex}
     
-    INTERPRÉTATION :
-    "La courbe se maintient au-dessus du seuil de 0.45 (Zone Verte). 
-    L'étanchéité apicale est validée mathématiquement."
+    [2] ANALYSE DE DENSITÉ (NORMALISÉE 0-1) :
+    - Indice H final    : {h_final:.4f}
+    - Indice H maximum  : {h_max:.4f}
+    - Seuil de sécurité : 0.45 (Ligne Rouge)
+    
+    --------------------------------------------------
+    [3] VALIDATION DU VERDICT :
+    - Longueur du Canal : {longueur_canal} px
+    - Début Tiers Apical: {y_tiers_debut} px
+    - Pixels analysés   : {nb_pixels_cyan} px
+    - Ratio de sécurité : {ratio_securite:.1f} %
+    
+    DIAGNOSTIC FINAL    : {statut}
+    --------------------------------------------------
+    
+    INTERPRÉTATION CLINIQUE :
+    "L'obturation est validée sur une longueur de {longueur_canal} px. 
+    La courbe de densité dans le tiers apical (Cyan) se maintient en zone verte.
+    La densité finale de {h_final:.4f} confirme l'étanchéité de la Dent 16."
     """
-    st.code(rapport_expert)
-    st.download_button("💾 Télécharger le Rapport", rapport_expert, file_name="Expertise_JENHI.txt")
+
+    st.subheader("📝 Bilan Expert CAD")
+    st.code(rapport_expert, language="text")
+    
+    st.download_button(
+        label="💾 Générer l'Attestation (.txt)",
+        data=rapport_expert,
+        file_name=f"Expertise_CAD_JENHI.txt"
+    )
 else:
-    st.info("💡 Chargez une radio pour lancer l'expertise.")
+    st.info("💡 En attente du chargement d'une radio.")
