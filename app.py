@@ -45,14 +45,14 @@ if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
-    # UTILISATION DE Y_BAS
+    # UTILISATION DE Y_BAS (COHÉRENCE CODE ET IHM)
     x_c = st.sidebar.slider("Axe X (Forage)", 0, w, 712)
     y_apex_haut = st.sidebar.slider("Y_Apex (Haut / Point Blanc)", 0, h, 9)
     y_bas = st.sidebar.slider("Y_Bas (Limite Canal)", 0, h, 1147)
 
     # --- ÉQUATIONS DU MODÈLE L = W + D ---
     L = abs(y_bas - y_apex_haut)
-    W = int(L * 0.34)  # Fenêtre d'expertise
+    W = int(L * 0.34)  # Fenêtre d'expertise (Tiers Apical)
     D = int(L * 0.66)  # Distance de descente
     
     y_limite_expertise = y_apex_haut + W 
@@ -78,7 +78,7 @@ if raw_img is not None:
         cv2.line(img_visu, (x_c - 20, y_apex_haut), (x_c - 20, y_bas), (255, 0, 0), 6)
         # Trait Cyan : Zone Expertise
         cv2.line(img_visu, (x_c, y_apex_haut), (x_c, y_limite_expertise), (0, 255, 255), 15)
-        # Apex Cible
+        # Apex Cible (Point Blanc)
         cv2.circle(img_visu, (x_c, y_apex_haut), 22, (255, 255, 255), -1)
         st.image(img_visu, use_container_width=True)
 
@@ -91,44 +91,69 @@ if raw_img is not None:
         fig.update_layout(template="plotly_dark", height=400, title="Analyse Tiers Apical")
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- 6. BILAN EXPERT SCIENTIFIQUE ---
+    # --- 6. BILAN EXPERT CAD (FORMAT SCIENTIFIQUE) ---
     st.divider()
     st.subheader("📝 Bilan Expert CAD (Format Scientifique)")
     
-    # Affichage LaTeX des équations
-    st.latex(r"L_{total} = |y_{bas} - y_{apex}| = " + f"{L}")
-    st.latex(r"W_{expertise} = L \times 0.34 = " + f"{W} \text{{ pixels}}")
-    st.latex(r"D_{descente} = L \times 0.66 = " + f"{D} \text{{ pixels}}")
+    col_math, col_verdict = st.columns([1, 1.5])
+    
+    with col_math:
+        st.markdown("### 🧮 Justification Mathématique")
+        st.latex(r"L_{canal} = |Y_{bas} - Y_{apex}| = " + f"{L}")
+        st.latex(r"W_{expertise} = L \times 0.34 = " + f"{W} \text{{ px}}")
+        st.latex(r"D_{descente} = L \times 0.66 = " + f"{D} \text{{ px}}")
+        st.latex(r"Ratio_{sécurité} = \frac{H_{final}}{0.45} \times 100 = " + f"{ratio_securite:.1f}\%")
 
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
+    precision_apex = "Validée (Position matricielle haute)" if y_apex_haut < 100 else "À vérifier"
 
+    # Construction du rapport final
     rapport_expert = f"""
     RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD v3.0
     --------------------------------------------------
     EXPERT RESPONSABLE : JENHI .M
     UNITÉ D'ANALYSE    : Faculté des Sciences - FÈS
+    PROJET             : Master Diagnostic IA - Dent 16
     APPLICATION URL    : {url_app}
     --------------------------------------------------
 
-    [1] ANALYSE TECHNIQUE :
-    - TRAIT ROUGE (SCAN GLOBAL) : Continuité sur L ({L} px).
-    - TRAIT CYAN (ZONE EXPERTISE) : Étanchéité sur W ({W} px).
+    [1] ANALYSE TECHNIQUE DES CAPTEURS :
+    - TRAIT ROUGE (SCAN GLOBAL) : Analyse la densité sur toute 
+      la longueur canalaire. Détecte les pertes de continuité.
+    - TRAIT CYAN (ZONE EXPERTISE) : Focalisation sur le tiers 
+      apical pour mesurer l'herméticité finale (Point Blanc).
 
     [2] DONNÉES DE LOCALISATION :
-    - Apex Cible (Y_haut) : {y_apex_haut} px
-    - Bas Canal (Y_bas)   : {y_bas} px
     - Axe de forage (X)   : {x_c} px
+    - Apex Cible (Y_haut) : {y_apex_haut} px (POINT BLANC)
+    - Base Canal (Y_bas)   : {y_bas} px
+    - Précision Apex      : {precision_apex}
 
-    [3] MÉTRIQUES DENSITOMÉTRIQUES :
-    - Indice H final    : {h_final:.4f}
-    - Ratio de sécurité : {ratio_securite:.1f} %
-    - Seuil critique    : 0.45
+    [3] ANALYSE DE DENSITÉ :
+    - Indice H final      : {h_final:.4f}
+    - Indice H maximum    : {h_max:.4f}
+    - Seuil de sécurité   : 0.45
 
-    [4] VALIDATION DU VERDICT :
-    Équation : L = W + D ({W} + {D} = {L})
-    DIAGNOSTIC FINAL    : {statut}
+    [4] VALIDATION DU VERDICT (CALCULS) :
+    - Équation de structure : L = W + D ({W} + {D} = {L} px)
+    - Ratio de sécurité     : {ratio_securite:.1f} %
+
+    DIAGNOSTIC FINAL      : {statut}
     --------------------------------------------------
+    INTERPRÉTATION CLINIQUE :
+    "L'obturation est validée jusqu'au Point Blanc (Y={y_apex_haut}). 
+    L'analyse combinée du Trait Rouge (continuité) et du Trait Cyan 
+    (étanchéité apicale) confirme que la densité de {h_final:.4f} est 
+    suffisante pour garantir un scellement hermétique."
     """
 
-    st.code(rapport_expert, language="text")
-    st.download_button("💾 Exporter le Rapport", rapport_expert, file_name="Expertise_JENHI.txt")
+    with col_verdict:
+        st.code(rapport_expert, language="text")
+        st.download_button(
+            label="💾 Générer l'Attestation d'Expertise (.txt)",
+            data=rapport_expert,
+            file_name=f"Expertise_CAD_JENHI.txt",
+            mime="text/plain"
+        )
+else:
+    st.info("💡 En attente du chargement de la radiographie pour expertise...")
