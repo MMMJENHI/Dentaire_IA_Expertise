@@ -5,8 +5,6 @@ import plotly.graph_objects as go
 from skimage.measure import profile_line
 from scipy.signal import savgol_filter
 from PIL import Image
-import pandas as pd
-import time
 import requests
 from io import BytesIO
 
@@ -22,156 +20,99 @@ def preprocess_image(image):
 def smooth(sig):
     if len(sig) > 5:
         w_len = 11 if len(sig) > 11 else (len(sig)-1 if len(sig)%2==0 else len(sig))
-        return savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
-    return sig / 255.0
+        res = savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
+        return np.clip(res, 0, 1)
+    return np.clip(sig / 255.0, 0, 1)
 
-# --- 3. LOGO & IDENTITÉ ---
+# --- 3. IDENTITÉ ---
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3774/3774278.png", width=80)
 st.sidebar.markdown(f"### 👨‍🔬 Expert : JENHI .M")
 st.sidebar.divider()
 
 st.title("🦷 CAD System : Expertise Double Échelle (Dent 16)")
 
-source_radio = st.sidebar.radio("📁 Source de la Radio :", ("Local", "URL/GitHub", "Démo"))
+# --- 4. CHARGEMENT ---
+try:
+    raw_img = Image.open("dent.jpg")
+except:
+    res = requests.get("https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
+    raw_img = Image.open(BytesIO(res.content))
 
-raw_img = None
-if source_radio == "Local":
-    up = st.file_uploader("Radio", type=["jpg", "png", "jpeg"])
-    if up: raw_img = Image.open(up)
-elif source_radio == "URL/GitHub":
-    url_input = st.text_input("Lien Raw :", value="https://raw.githubusercontent.com/MMMJENHI/Dentaire_IA_Expertise/main/dent.jpg")
-    if url_input:
-        try:
-            res = requests.get(url_input, timeout=5)
-            raw_img = Image.open(BytesIO(res.content))
-        except: st.error("Lien invalide")
-else:
-    try:
-        raw_img = Image.open("dent.jpg")
-    except:
-        st.error("Fichier 'dent.jpg' absent.")
-        st.stop()
-
-# --- 4. TRAITEMENT ---
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h, w = img_gray.shape
 
-    # QR CODE DYNAMIQUE
-    url_app = "https://dentaireiaexpertiseia.streamlit.app/"
-    qr_api = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={url_app}"
-    st.sidebar.image(qr_api, caption="Lien Mobile Officiel")
-    st.sidebar.divider()
+    x_c = st.sidebar.slider("Axe X (Forage)", 0, w, 718)
+    y_apex_haut = st.sidebar.slider("Y_Apex (Haut)", 0, h, 9)
+    y_tenon_bas = st.sidebar.slider("Y_Tenon (Bas)", 0, h, 1147)
 
-    x_c = st.sidebar.slider("Position X (Axe)", 0, w, int(w/2))
-    y_haut = st.sidebar.slider("Haut Canal (Y)", 0, h, int(h*0.2))
-    y_apex = st.sidebar.slider("Y_apex (Point Final)", 0, h, int(h*0.8))
-
-    if y_apex <= y_haut: y_apex = y_haut + 20
+    # --- ÉQUATIONS DU MODÈLE ---
+    L = abs(y_tenon_bas - y_apex_haut)
+    # Zone de descente (non analysée pour le scellement)
+    D = int(L * 0.66)
+    # Fenêtre d'expertise (Tiers Apical)
+    W = int(L * 0.34)
     
-    # CALCULS MATHÉMATIQUES POUR LE JURY
-    longueur_canal = y_apex - y_haut
-    y_tiers_debut = int(y_haut + longueur_canal * 0.66)
-    nb_pixels_zone_cyan = y_apex - y_tiers_debut
+    y_limite_expertise = y_apex_haut + W 
     
-    # Signaux
-    signal_global = profile_line(img_gray, (y_haut, x_c), (y_apex, x_c), linewidth=3)
-    signal_apical = profile_line(img_gray, (y_tiers_debut, x_c), (y_apex, x_c), linewidth=5)
+    signal_global = profile_line(img_gray, (y_apex_haut, x_c), (y_tenon_bas, x_c), linewidth=3)
+    signal_apical = signal_global[:W] # Les 34% de pixels en haut (Apex)
 
     H_global = smooth(signal_global)
     H_apical = smooth(signal_apical)
-    h_final = float(H_apical[-1])
-    
-    # Ratio de sécurité (pourcentage par rapport au seuil 0.45)
+    h_final = float(H_apical[0])
     ratio_securite = (h_final / 0.45) * 100
 
     # --- 5. VISUALISATION ---
-    col_img, col_graphs = st.columns([1, 1.5])
-
-    with col_img:
-        st.subheader("🔎 Visualisation CAD")
+    col1, col2 = st.columns([1, 1.5])
+    with col1:
+        st.subheader("🔎 Visualisation")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-        
-        # DESSINS ULTRA-VISIBLES
-        cv2.line(img_visu, (x_c - 20, y_haut), (x_c - 20, y_apex), (255, 0, 0), 6) # ROUGE
-        cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 15) # CYAN
-        cv2.circle(img_visu, (x_c, y_apex), 22, (255, 255, 255), -1) # BLANC
+        cv2.line(img_visu, (x_c - 20, y_apex_haut), (x_c - 20, y_tenon_bas), (255, 0, 0), 6)
+        cv2.line(img_visu, (x_c, y_apex_haut), (x_c, y_limite_expertise), (0, 255, 255), 15)
+        cv2.circle(img_visu, (x_c, y_apex_haut), 22, (255, 255, 255), -1)
         st.image(img_visu, use_container_width=True)
 
-        # LÉGENDE GÉANTE
-        st.markdown("""
-        <div style="background-color: #000000; padding: 25px; border-radius: 15px; border: 3px solid #ffffff; line-height: 1.8;">
-            <p style="font-size: 22px; margin: 0; font-weight: bold;">
-                <span style="color: #FF0000;">━━</span> <span style="color: white;">PROFIL GLOBAL (ROUGE)</span>
-            </p>
-            <p style="font-size: 22px; margin: 0; font-weight: bold;">
-                <span style="color: #00FFFF;">━━</span> <span style="color: white;">TIERS APICAL (CYAN)</span>
-            </p>
-            <p style="font-size: 22px; margin: 0; font-weight: bold;">
-                <span style="color: white; border: 2px solid white; border-radius: 50%; padding: 0 10px;">●</span> <span style="color: white;">APEX CIBLE (TRÈS BLANC)</span>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col_graphs:
-        fig1 = go.Figure()
-        fig1.add_trace(go.Scatter(x=np.arange(y_haut, y_apex), y=H_global, name="Global", line=dict(color='red', width=3)))
-        fig1.update_layout(template="plotly_dark", height=250, title="Scan Global", yaxis_title="Densité H")
-        st.plotly_chart(fig1, use_container_width=True)
-
+    with col2:
+        # Graphique Expertise avec Verdict
         fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(y=H_apical, name="Apical", line=dict(color='cyan', width=5)))
-        fig2.add_shape(type="line", x0=0, y0=0.45, x1=len(H_apical), y1=0.45, line=dict(color="white", dash="dash"))
-        fig2.update_layout(template="plotly_dark", height=250, title="Expertise Tiers Apical", yaxis_title="Densité H")
+        fig2.add_trace(go.Scatter(x=np.arange(y_apex_haut, y_limite_expertise), y=H_apical, name="Apical", line=dict(color='cyan', width=5)))
+        fig2.add_hrect(y0=0.45, y1=1.0, fillcolor="green", opacity=0.15, annotation_text="CONFORME")
+        fig2.add_hrect(y0=0, y1=0.45, fillcolor="red", opacity=0.15, annotation_text="INFILTRATION")
+        fig2.add_hline(y=0.45, line_dash="dash", line_color="red", line_width=3)
+        fig2.update_layout(template="plotly_dark", height=400, title=f"Expertise : Fenêtre W = {W} px", xaxis_title="Position Y (Pixels)")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. RAPPORT D'EXPERTISE AVEC CALCULS AUTOMATIQUES ---
+    # --- 6. BILAN AVEC ÉQUATIONS MATHÉMATIQUES ---
     st.divider()
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
-    precision_apex = "Validée (Position terminale)" if y_apex > (h * 0.7) else "À vérifier"
+
+    # Affichage des équations pour le Jury
+    st.latex(r"L_{canal} = |Y_{tenon} - Y_{apex}| = " + f"{L}")
+    st.latex(r"W_{expertise} = L \times 0.34 = " + f"{W} \text{ pixels}")
+    st.latex(r"D_{descente} = L \times 0.66 = " + f"{D} \text{ pixels}")
 
     rapport_expert = f"""
     RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD v3.0
     --------------------------------------------------
-    EXPERT RESPONSABLE : JENHI .M
-    UNITÉ D'ANALYSE    : Cabinet Dentaire Universitaire
-    PROJET             : Master Diagnostic IA - Dent 16
+    EXPERT : JENHI .M | MODÈLE MATHÉMATIQUE APPLIQUÉ
     --------------------------------------------------
+    [1] PARAMÈTRES DE STRUCTURE (UNITÉ : PIXEL) :
+    - Longueur totale (L)     : {L} px
+    - Descente Neutre (0.66*L): {D} px
+    - Fenêtre Critique (0.34*L): {W} px (Zone Cyan)
     
-    [1] DONNÉES DE LOCALISATION :
-    - Axe de forage (X) : {x_c} px
-    - Limite Coronaire  : {y_haut} px
-    - Cible Apicale     : {y_apex} px (POINT BLANC)
-    - Précision Apex    : {precision_apex}
+    [2] ANALYSE DENSITOMÉTRIQUE :
+    - Équation de Scellement  : H_apex >= 0.45
+    - Résultat Obtenu         : {h_final:.4f}
+    - Indice de Sécurité      : {ratio_securite:.2f} %
     
-    [2] ANALYSE DE DENSITÉ (ZONE CYAN) :
-    - Indice H final    : {h_final:.4f}
-    - Seuil de sécurité : 0.45
-    
+    [3] VERDICT MÉDICAL :
+    L'expertise mathématique sur le segment apical W ({W} px)
+    confirme que l'obturation est {statut}.
     --------------------------------------------------
-    [3] VALIDATION DU VERDICT :
-    - Longueur du Canal : {longueur_canal} px
-    - Segment Apical    : [{y_tiers_debut} px - {y_apex} px]
-    - Pixels analysés   : {nb_pixels_zone_cyan} px
-    - Ratio de sécurité : {ratio_securite:.1f} %
-    
-    DIAGNOSTIC FINAL    : {statut}
-    --------------------------------------------------
-    
-    INTERPRÉTATION CLINIQUE :
-    "L'obturation est mesurée sur une longueur totale de {longueur_canal} px. 
-    L'expertise du tiers apical (Zone Cyan) montre une densité H de {h_final:.4f}. 
-    Le ratio de sécurité de {ratio_securite:.1f}% valide l'herméticité 
-    du scellement au niveau du Point Blanc (Apex)."
     """
-
-    st.subheader("📝 Bilan Expert CAD")
-    st.code(rapport_expert, language="text")
     
-    st.download_button(
-        label="💾 Générer l'Attestation (.txt)",
-        data=rapport_expert,
-        file_name=f"Expertise_CAD_JENHI.txt"
-    )
-else:
-    st.info("💡 En attente du chargement d'une radio.")
+    st.subheader("📝 Bilan Expert CAD (Format Scientifique)")
+    st.code(rapport_expert, language="text")
+    st.download_button("💾 Exporter le Rapport", rapport_expert, file_name="Expertise_Math_JENHI.txt")
