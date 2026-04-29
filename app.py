@@ -22,12 +22,10 @@ def preprocess_image(image):
 def smooth(sig):
     if len(sig) > 5:
         w_len = 11 if len(sig) > 11 else (len(sig)-1 if len(sig)%2==0 else len(sig))
-        res = savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
-        return np.clip(res, 0, 1)
-    return np.clip(sig / 255.0, 0, 1)
+        return savgol_filter(sig, window_length=max(3, w_len), polyorder=2) / 255.0
+    return sig / 255.0
 
 # --- 3. LOGO & IDENTITÉ ---
-# Remplacement définitif : Icône Dentaire pour Expertise Dent 16
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3774/3774278.png", width=80)
 st.sidebar.markdown(f"### 👨‍🔬 Expert : JENHI .M")
 st.sidebar.divider()
@@ -66,73 +64,68 @@ if raw_img is not None:
     st.sidebar.divider()
 
     x_c = st.sidebar.slider("Position X (Axe)", 0, w, int(w/2))
-    y_haut = st.sidebar.slider("Haut de Canal (Y)", 0, h, int(h*0.2))
-    y_apex = st.sidebar.slider("Y_apex (Bas de Canal)", 0, h, int(h*0.8))
+    y_haut = st.sidebar.slider("Haut Canal (Y)", 0, h, int(h*0.2))
+    y_apex = st.sidebar.slider("Y_apex (Point Final)", 0, h, int(h*0.8))
 
     if y_apex <= y_haut: y_apex = y_haut + 20
     
-    # CALCULS MATHÉMATIQUES POUR LE RAPPORT
+    # CALCULS MATHÉMATIQUES POUR LE JURY
     longueur_canal = y_apex - y_haut
-    # Formule mathématique du tiers apical
-    y_tiers_debut = int(y_haut + (longueur_canal * 0.66))
-    nb_pixels_cyan = y_apex - y_tiers_debut
+    y_tiers_debut = int(y_haut + longueur_canal * 0.66)
+    nb_pixels_zone_cyan = y_apex - y_tiers_debut
     
+    # Signaux
     signal_global = profile_line(img_gray, (y_haut, x_c), (y_apex, x_c), linewidth=3)
     signal_apical = profile_line(img_gray, (y_tiers_debut, x_c), (y_apex, x_c), linewidth=5)
 
     H_global = smooth(signal_global)
     H_apical = smooth(signal_apical)
     h_final = float(H_apical[-1])
-    h_max = float(np.max(H_apical))
     
+    # Ratio de sécurité (pourcentage par rapport au seuil 0.45)
     ratio_securite = (h_final / 0.45) * 100
 
-    # --- 5. VISUALISATION COMBINÉE ---
+    # --- 5. VISUALISATION ---
     col_img, col_graphs = st.columns([1, 1.5])
 
     with col_img:
         st.subheader("🔎 Visualisation CAD")
         img_visu = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
         
+        # DESSINS ULTRA-VISIBLES
         cv2.line(img_visu, (x_c - 20, y_haut), (x_c - 20, y_apex), (255, 0, 0), 6) # ROUGE
         cv2.line(img_visu, (x_c, y_tiers_debut), (x_c, y_apex), (0, 255, 255), 15) # CYAN
         cv2.circle(img_visu, (x_c, y_apex), 22, (255, 255, 255), -1) # BLANC
-        
         st.image(img_visu, use_container_width=True)
 
+        # LÉGENDE GÉANTE
         st.markdown("""
         <div style="background-color: #000000; padding: 25px; border-radius: 15px; border: 3px solid #ffffff; line-height: 1.8;">
-            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+            <p style="font-size: 22px; margin: 0; font-weight: bold;">
                 <span style="color: #FF0000;">━━</span> <span style="color: white;">PROFIL GLOBAL (ROUGE)</span>
             </p>
-            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+            <p style="font-size: 22px; margin: 0; font-weight: bold;">
                 <span style="color: #00FFFF;">━━</span> <span style="color: white;">TIERS APICAL (CYAN)</span>
             </p>
-            <p style="font-size: 24px; margin: 0; font-weight: bold;">
+            <p style="font-size: 22px; margin: 0; font-weight: bold;">
                 <span style="color: white; border: 2px solid white; border-radius: 50%; padding: 0 10px;">●</span> <span style="color: white;">APEX CIBLE (TRÈS BLANC)</span>
             </p>
         </div>
         """, unsafe_allow_html=True)
 
     with col_graphs:
-        # Courbe 1: PROFIL DE DENSITÉ GLOBAL (0 à 1)
         fig1 = go.Figure()
         fig1.add_trace(go.Scatter(x=np.arange(y_haut, y_apex), y=H_global, name="Global", line=dict(color='red', width=3)))
-        fig1.update_layout(template="plotly_dark", height=250, title="Profil de Densité Global", 
-                          yaxis=dict(title="Densité H (0.0 à 1.0)", range=[0, 1]))
+        fig1.update_layout(template="plotly_dark", height=250, title="Scan Global", yaxis_title="Densité H")
         st.plotly_chart(fig1, use_container_width=True)
 
-        # Courbe 2: TIERS APICAL (0 à 1)
         fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(y=H_apical, name="Tiers Apical", line=dict(color='cyan', width=5)))
-        fig2.add_hline(y=0.45, line_dash="dash", line_color="white", annotation_text="SEUIL (0.45)")
-        fig2.add_annotation(x=len(H_apical)-1, y=h_final, text=f"H FINAL: {h_final:.2f}", showarrow=True, arrowhead=2, bgcolor="cyan")
-        
-        fig2.update_layout(template="plotly_dark", height=250, title="Analyse de Densité (Tiers Apical)", 
-                          yaxis=dict(title="Densité H (0.0 à 1.0)", range=[0, 1]))
+        fig2.add_trace(go.Scatter(y=H_apical, name="Apical", line=dict(color='cyan', width=5)))
+        fig2.add_shape(type="line", x0=0, y0=0.45, x1=len(H_apical), y1=0.45, line=dict(color="white", dash="dash"))
+        fig2.update_layout(template="plotly_dark", height=250, title="Expertise Tiers Apical", yaxis_title="Densité H")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 6. RAPPORT & VERDICT ---
+    # --- 6. RAPPORT D'EXPERTISE AVEC CALCULS AUTOMATIQUES ---
     st.divider()
     statut = "✅ CONFORME" if h_final >= 0.45 else "🚨 NON CONFORME"
     precision_apex = "Validée (Position terminale)" if y_apex > (h * 0.7) else "À vérifier"
@@ -147,31 +140,29 @@ if raw_img is not None:
     
     [1] DONNÉES DE LOCALISATION :
     - Axe de forage (X) : {x_c} px
-    - Haut de Canal (Y) : {y_haut} px
-    - Cible Apicale (Y) : {y_apex} px (POINT BLANC)
-    - Formule Y_apex    : Y_apex = Y_haut + Longueur_Canal
+    - Limite Coronaire  : {y_haut} px
+    - Cible Apicale     : {y_apex} px (POINT BLANC)
     - Précision Apex    : {precision_apex}
     
-    [2] ANALYSE DE DENSITÉ (NORMALISÉE 0-1) :
+    [2] ANALYSE DE DENSITÉ (ZONE CYAN) :
     - Indice H final    : {h_final:.4f}
-    - Indice H maximum  : {h_max:.4f}
     - Seuil de sécurité : 0.45
     
     --------------------------------------------------
     [3] VALIDATION DU VERDICT :
     - Longueur du Canal : {longueur_canal} px
-    - Début Tiers Apical: {y_haut} + ({longueur_canal} * 0.66) = {y_tiers_debut} px
-    - Segment d'Expertise: [{y_tiers_debut} px - {y_apex} px]
-    - Pixels analysés   : {nb_pixels_cyan} px
+    - Segment Apical    : [{y_tiers_debut} px - {y_apex} px]
+    - Pixels analysés   : {nb_pixels_zone_cyan} px
     - Ratio de sécurité : {ratio_securite:.1f} %
     
     DIAGNOSTIC FINAL    : {statut}
     --------------------------------------------------
     
     INTERPRÉTATION CLINIQUE :
-    "L'obturation est validée sur une longueur de {longueur_canal} px. 
-    L'analyse du tiers apical (Cyan) débute à {y_tiers_debut} px. 
-    La densité finale de {h_final:.4f} confirme l'étanchéité de la Dent 16."
+    "L'obturation est mesurée sur une longueur totale de {longueur_canal} px. 
+    L'expertise du tiers apical (Zone Cyan) montre une densité H de {h_final:.4f}. 
+    Le ratio de sécurité de {ratio_securite:.1f}% valide l'herméticité 
+    du scellement au niveau du Point Blanc (Apex)."
     """
 
     st.subheader("📝 Bilan Expert CAD")
