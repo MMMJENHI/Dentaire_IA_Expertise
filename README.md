@@ -7,7 +7,7 @@
 
 
 ### 🗄️ Accès à la Base de Données & Projets de Référence
-* **Dépôt Principal :** [📊 Consulter le Dépôt Expertises (GitHub)](https://github.com/MMMJENHI/Dentaire_IA_Expertise)
+
 * **Module de Détection :** [🦷 Tooth Detection Reference](https://github.com/clemkoa/tooth-detection)
 ---
 
