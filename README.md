@@ -81,6 +81,6 @@ Le développement de ce système s'appuie sur les standards technologiques et le
 - `requirements.txt` : Dépendances techniques (NumPy, Scikit-image, Scipy).
 - `dent.jpg` : Image échantillon utilisée pour le mode démonstration.
 
-**Développé par JENHI .M dans le cadre d'un projet de Master | Faculté des Sciences - FÈS | 2026**
+**Développé par JENHI .M  | Faculté des Sciences.Departement de chimie - FÈS | 2026**
 
-**Développé par JENHI .M dans le cadre d'un projet de Master | Faculté des Sciences - FÈS | 2026**
+
