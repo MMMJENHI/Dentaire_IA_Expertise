@@ -5,12 +5,10 @@
 ### 📲 Accès Direct à l'Application
 [🚀 Lancer l'Expertise CAD](https://dentaireiaexpertiseia.streamlit.app/)
 
-### 🗄️ Accès à la Base de Données & Site
 
-* [📊 Consulter la Base de Données (GitHub)](https://github.com/MMMJENHI/Dentaire_IA_Expertise)
-* [📊 Consulter le Site d'Expertise](https://github.com/clemkoa/tooth-detection)
-* [📊 Consulter le Site d'Expertise](https://github.com/topics/dental)
-
+### 🗄️ Accès à la Base de Données & Projets de Référence
+* **Dépôt Principal :** [📊 Consulter le Dépôt Expertises (GitHub)](https://github.com/MMMJENHI/Dentaire_IA_Expertise)
+* **Module de Détection :** [🦷 Tooth Detection Reference](https://github.com/clemkoa/tooth-detection)
 ---
 
 ## 🔬 Présentation du Projet
