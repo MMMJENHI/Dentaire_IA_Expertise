@@ -2,15 +2,13 @@
 
 <img width="400" height="400" alt="qrcode" src="https://github.com/user-attachments/assets/d792ee06-0386-4316-844c-5c13ca781df8" />
 
-# 🦷 IA Expertise Dentaire - Master (Analyse de la Dent 16)
 
-<img width="400" height="400" alt="qrcode" src="https://github.com/user-attachments/assets/d792ee06-0386-4316-844c-5c13ca781df8" />
 
 ### 📲 Accès Direct à l'Application
 [🚀 Lancer l'Expertise CAD](https://dentaireiaexpertiseia.streamlit.app/)
 
 ### 🗄️ Accès à la Base de Données & Projets de Référence
-* **Dépôt Principal :** [📊 Consulter le Dépôt Expertises (GitHub)](https://github.com/MMMJENHI/Dentaire_IA_Expertise)
+
 * **Module de Détection :** [🦷 Tooth Detection Reference](https://github.com/clemkoa/tooth-detection)
 
 ---
