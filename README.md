@@ -6,8 +6,9 @@
 [🚀 Lancer l'Expertise CAD](https://dentaireiaexpertiseia.streamlit.app/)
 
 ### 🗄️ Accès à la Base de Données & Site
-[📊 Consulter la Base de Données (GitHub)](https://github.com/MMMJENHI/Dentaire_IA_Expertise)
-[📊 Consulter la Base de Données (GitHub)](https://github.com/clemkoa/tooth-detection)
+
+* [📊 Consulter la Base de Données (GitHub)](https://github.com/MMMJENHI/Dentaire_IA_Expertise)
+* [📊 Consulter le Site d'Expertise](https://github.com/clemkoa/tooth-detection)
 
 ---
 
