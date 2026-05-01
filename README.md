@@ -9,6 +9,7 @@
 
 * [📊 Consulter la Base de Données (GitHub)](https://github.com/MMMJENHI/Dentaire_IA_Expertise)
 * [📊 Consulter le Site d'Expertise](https://github.com/clemkoa/tooth-detection)
+* [📊 Consulter le Site d'Expertise](https://github.com/topics/dental)
 
 ---
 
