@@ -29,7 +29,7 @@ def smooth(sig):
 
 # --- 3. LOGIQUE ADAPTATIVE (ORDRE ANATOMIQUE : Cervical -> Moyen -> Apical) ---
 def identifier_zone_relative(x_current, y_current, h_val):
-    """Logique Expert JENHI .M - Faculté des Sciences Fès."""
+    """Logique Expert JENHI .M """
     if h_val < 0.25: return "ZONE NOIRE (LÉSION)", "ALERTE RADIOCLAIRE"
     
     if h_val > 0.65 and (570 <= x_current <= 735) and (1200 <= y_current <= 1530):
@@ -143,7 +143,7 @@ if raw_img is not None:
     RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD v4.2
     --------------------------------------------------
     EXPERT RESPONSABLE : JENHI .M
-    UNITÉ D'ANALYSE    : Faculté des Sciences - FÈS
+    UNITÉ D'ANALYSE    :  Obtrution canalaire
     --------------------------------------------------
 
     [1] ANALYSE TECHNIQUE DES CAPTEURS :
