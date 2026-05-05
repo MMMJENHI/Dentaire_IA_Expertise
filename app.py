@@ -13,7 +13,7 @@ from datetime import datetime
 # 1. CONFIGURATION INTERFACE
 # ==============================
 st.set_page_config(
-    page_title="CAD IA v4.7 - Analyse Densitométrique",
+    page_title="CAD IA v4.7 - Analyse Densitométrique Canal Radiculaire",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -36,8 +36,7 @@ def smooth(sig: np.ndarray) -> np.ndarray:
         sm = savgol_filter(sig, window_length=max(3, w_len), polyorder=2)
     else:
         sm = sig
-    sm_norm = np.clip(sm / 255.0, 0, 1)
-    return sm_norm
+    return np.clip(sm / 255.0, 0, 1)
 
 def label_from_class(classe: int) -> str:
     if classe == 0:
@@ -45,14 +44,6 @@ def label_from_class(classe: int) -> str:
     if classe == 1:
         return "ZONE INTERMÉDIAIRE (0.25 ≤ H < 0.45)"
     return "ZONE DENSE (H ≥ 0.45)"
-
-def verdict_tier(H_mean: float, seuil: float = 0.45) -> str:
-    if H_mean < seuil:
-        return "NON CONFORME (H moyen < 0.45)"
-    elif H_mean < seuil + 0.05:
-        return "LIMITE (H moyen légèrement ≥ 0.45)"
-    else:
-        return "CONFORME (H moyen confortablement ≥ 0.45)"
 
 # ==============================
 # 3. BARRE LATÉRALE - CONTROLES
@@ -87,14 +78,14 @@ else:
 patient_id = st.sidebar.text_input("🧾 ID / Référence Patient", value="N/A")
 
 # ==============================
-# 4. ANALYSE DENSITOMÉTRIQUE
+# 4. ANALYSE DENSITOMÉTRIQUE CANALAIRE
 # ==============================
 if raw_img is not None:
     img_gray = preprocess_image(raw_img)
     h_img, w_img = img_gray.shape
     st.sidebar.caption(f"Résolution image : {w_img} × {h_img} px")
 
-    # Carte de densité normalisée
+    # Carte de densité H normalisée
     H_map = img_gray.astype(np.float32) / 255.0
 
     # Cartographie densité : 0 = noire, 1 = intermédiaire, 2 = dense
@@ -103,60 +94,146 @@ if raw_img is not None:
     map_classes[(H_map >= 0.25) & (H_map < 0.45)] = 1
     map_classes[H_map >= 0.45] = 2
 
-    # ========= AXE RÉEL DU CANAL (2 POINTS) =========
-    st.sidebar.subheader("📍 Axe réel du canal (2 points)")
-    # Point coronal : entrée du canal
-    x1 = st.sidebar.slider("X (entrée canal)", 0, w_img - 1, w_img // 2)
-    y1 = st.sidebar.slider("Y (entrée canal)", 0, h_img - 1, int(h_img * 0.20))
-    # Point apical : apex radiographique / Point Blanc
-    x2 = st.sidebar.slider("X (apex)", 0, w_img - 1, w_img // 2)
-    y2 = st.sidebar.slider("Y (apex)", 0, h_img - 1, int(h_img * 0.80))
+    # --- Positionnement CAD (Canal radiculaire) ---
+    st.sidebar.subheader("📍 Positionnement CAD (Canal radiculaire)")
 
-    L = int(np.hypot(x2 - x1, y2 - y1))
-    st.sidebar.caption(f"Longueur axe canal ≈ {L} px")
+    x_default = w_img // 2
+    x_c = st.sidebar.slider("X_apex : position X de l'apex (point blanc)", 0, w_img - 1, x_default)
 
-    # Détection tenon/couronne au point apical
-    h_at_apex = float(H_map[y2, x2])
-    st.sidebar.caption(f"H au Point Blanc (apex) = {h_at_apex:.3f}")
-    PROTHESIS_THRESHOLD = 0.70
-    is_on_prosthesis = h_at_apex >= PROTHESIS_THRESHOLD
+    # Nouveau : X_bas pour suivre la courbure du canal
+    x_bas = st.sidebar.slider(
+        "X_bas : position X au bas du canal (vers collet/couronne)",
+        0, w_img - 1, x_c
+    )
 
-    # ========= PROFILS LE LONG DE L’AXE =========
-    # On considère le profil du canal de l'entrée (point 1) vers l'apex (point 2)
-    sig_cyan = profile_line(img_gray, (y1, x1), (y2, x2), linewidth=3)
+    # Origine canalaire = apex (point blanc, EN HAUT sur la radio)
+    y_apex_default = int(h_img * 0.20)
+    Y_apex = st.sidebar.slider(
+        "Y_apex : Apex (origine du canal, extrémité radiculaire, EN HAUT sur la radio)",
+        0, h_img - 1, y_apex_default
+    )
+
+    # Bas du canal analysé (vers collet/couronne, plus bas sur l'image)
+    MARGE_MIN = 20
+    MARGE_MAX = 700
+
+    Y_bas_min = min(h_img - 1, Y_apex + MARGE_MIN)
+    Y_bas_max = min(h_img - 1, Y_apex + MARGE_MAX)
+    if Y_bas_min >= Y_bas_max:
+        Y_bas_max = min(h_img - 1, Y_bas_min + 20)
+
+    Y_bas = st.sidebar.slider(
+        "Y_bas : Bas du canal analysé (vers collet/couronne)",
+        Y_bas_min, Y_bas_max, Y_bas_max
+    )
+
+    # Vérification du sens canal (apex -> bas)
+    if Y_bas <= Y_apex:
+        st.error(
+            f"❌ Canal invalide : Y_bas = {Y_bas} px ≤ Y_apex = {Y_apex} px.\n"
+            "Le canal doit être défini de l'apex (point blanc) vers la couronne (plus bas sur l'image).\n"
+            "➡ Augmente Y_bas ou remonte Y_apex."
+        )
+        st.stop()
+
+    # --- Géométrie canal ---
+    Y_origine_canal   = Y_apex      # origine clinique = apex = point blanc
+    Y_coronaire_canal = Y_bas       # bas du canal analysé (vers collet/couronne)
+    H_canal           = Y_coronaire_canal - Y_origine_canal
+    L                 = H_canal
+
+    if L < 20:
+        st.sidebar.warning("Hauteur de canal analysée très faible, ajuster les sliders.")
+
+    W_exp = max(10, int(L * 0.34))
+    y_lim_cyan = min(h_img - 1, Y_origine_canal + W_exp)
+
+    # --- Profils canalaire (origine = Apex) ---
+    # Profil principal le long du canal : apex (x_c, Y_apex) -> bas (x_bas, Y_bas)
+    sig_cyan = profile_line(
+        img_gray,
+        (Y_origine_canal, x_c),
+        (Y_coronaire_canal, x_bas),
+        linewidth=3
+    )
     H_smooth_cyan = smooth(sig_cyan)
 
-    # Profil latéral, légèrement décalé en X (structure radiculaire)
-    sig_rouge = profile_line(img_gray, (y1, x1 - 10), (y2, x2 - 10), linewidth=3)
+    # Profil latéral (structure radiculaire), décalé de 20 px vers la gauche
+    sig_rouge = profile_line(
+        img_gray,
+        (Y_origine_canal, x_c - 20),
+        (Y_coronaire_canal, x_bas - 20),
+        linewidth=3
+    )
     H_smooth_rouge = smooth(sig_rouge)
 
-    n = len(H_smooth_cyan)
-    # Ici : début = coronal, fin = apical
-    h_coronal_mean = np.mean(H_smooth_cyan[:n//3]) if n > 0 else 0.0
-    h_moyen_mean   = np.mean(H_smooth_cyan[n//3:2*n//3]) if n > 0 else 0.0
-    h_apical_mean  = np.mean(H_smooth_cyan[2*n//3:]) if n > 0 else 0.0
+    # Axe des distances canalaire : 0 → L (0 = apex, L = bas)
+    n_points = len(H_smooth_cyan)
+    if n_points > 1:
+        distances = np.linspace(0, L, n_points)
+    else:
+        distances = np.array([0.0])
 
-    # H final au point apical (Point Blanc sur axe réel)
-    h_final = float(H_smooth_cyan[-1]) if len(H_smooth_cyan) > 0 else 0.0
+    # Hf = densité à l'origine du canal (distance 0 = apex)
+    h_final = float(H_smooth_cyan[0]) if len(H_smooth_cyan) > 0 else 0.0
     h_critique = 0.45
     ratio_securite = (h_final / h_critique) * 100 if h_critique > 0 else 0
     ecart_seuil = h_final - h_critique
 
-    classe_apex = int(map_classes[y2, x2])
+    # Classe locale à l’apex
+    classe_apex = int(map_classes[Y_origine_canal, x_c])
     label_apex = label_from_class(classe_apex)
 
-    verdict_apical  = verdict_tier(h_apical_mean, seuil=h_critique)
-    verdict_moyen   = verdict_tier(h_moyen_mean,  seuil=h_critique)
-    verdict_coronal = verdict_tier(h_coronal_mean, seuil=h_critique)
+    # --- Warnings tenon / métal ---
+    SEUIL_METAL = 0.80
+    SEUIL_ZONE_TENON = int(h_img * 0.65)
 
-    expert_verdict = (
-        f"Tiers coronal : {verdict_coronal}. "
-        f"Tiers moyen : {verdict_moyen}. "
-        f"Tiers apical : {verdict_apical}."
-    )
+    if h_final > SEUIL_METAL:
+        st.warning(
+            f"⚠ H(Apex) = {h_final:.3f} (> {SEUIL_METAL}) : densité très élevée, "
+            "compatible avec un matériau métallique (tenon/couronne). "
+            "Vérifie que le point blanc n'est pas posé sur le tenon."
+        )
+
+    if Y_origine_canal > SEUIL_ZONE_TENON:
+        st.warning(
+            f"⚠ Y_apex = {Y_origine_canal} px se situe dans la zone basale de l'image "
+            f"(≥ {SEUIL_ZONE_TENON}px : probable tenon/couronne). "
+            "L'apex anatomique doit être plus haut sur la racine."
+        )
+
+    if (h_final > SEUIL_METAL) and (Y_origine_canal > SEUIL_ZONE_TENON):
+        st.error(
+            "❌ Apex très probablement mal placé : densité métallique ET position basale.\n"
+            "➡ Replace le point blanc au niveau de l'extrémité radiculaire, au-dessus du tenon."
+        )
+        st.stop()
 
     # ==============================
-    # 5. CARTOGRAPHIE H (COULEUR)
+    # 5. DÉCISION & RÉACTION APICALE
+    # ==============================
+    if h_final < 0.45 or classe_apex == 0:
+        statut_diag = "🚨 NON CONFORME (Hf < 0.45 à l’apex)"
+        interpretation = (
+            "L’analyse densitométrique met en évidence une densité insuffisante au niveau de l’extrémité "
+            "radiculaire (apex, point blanc). Cette configuration traduit une obturation apicale peu compacte "
+            "et/ou une herméticité douteuse dans la zone critique du tiers apical. Ce profil est décrit comme "
+            "associé à un risque accru de persistance ou de développement d’une parodontite apicale "
+            "(réaction apicale inflammatoire), et doit être corrélé aux signes cliniques (douleur, percussion, "
+            "palpation) et à l’imagerie péri-apicale (radiographie de contrôle, voire CBCT en cas de doute)."
+        )
+    else:
+        statut_diag = "✅ CONFORME (Hf ≥ 0.45 à l’apex)"
+        interpretation = (
+            "L’analyse densitométrique montre une densité satisfaisante au niveau de l’extrémité radiculaire "
+            "(apex, point blanc), compatible avec une obturation apicale compacte et une herméticité correcte. "
+            "Ce profil est en accord avec les critères radiologiques de succès endodontique, sous réserve de "
+            "l’absence de lésion péri-apicale évolutive ou de réaction apicale pathologique, et d’une concordance "
+            "avec les données cliniques."
+        )
+
+    # ==============================
+    # 6. CARTOGRAPHIE H (COULEUR)
     # ==============================
     overlay = np.zeros((h_img, w_img, 3), dtype=np.uint8)
     overlay[map_classes == 0] = (0, 0, 255)
@@ -164,189 +241,165 @@ if raw_img is not None:
     overlay[map_classes == 2] = (0, 255, 0)
 
     base_rgb = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
-    alpha = 0.35
-    cartographie_rgb = cv2.addWeighted(base_rgb, 1.0, overlay, alpha, 0)
+    cartographie_rgb = cv2.addWeighted(base_rgb, 1.0, overlay, 0.35, 0)
 
     display_img = cartographie_rgb.copy()
-
-    # Dessin de l’axe réel du canal et du profil latéral
-    if not is_on_prosthesis:
-        cv2.line(display_img, (x1, y1), (x2, y2), (0, 255, 255), 6)        # axe canal
-        cv2.line(display_img, (x1 - 10, y1), (x2 - 10, y2), (255, 0, 0), 3) # latéral
-    # Points de repère
-    cv2.circle(display_img, (x1, y1), 10, (255, 255, 255), -1)  # entrée canal
-    cv2.circle(display_img, (x2, y2), 14, (0, 255, 0), -1)      # apex / Point Blanc
+    # Profil Rouge : canal oblique (apex -> bas), légèrement décalé en X
+    cv2.line(
+        display_img,
+        (x_c - 20, Y_origine_canal),
+        (x_bas - 20, Y_coronaire_canal),
+        (255, 0, 0),
+        4
+    )
+    # Fenêtre Cyan : verticale locale autour de l'apex
+    cv2.line(
+        display_img,
+        (x_c, Y_origine_canal),
+        (x_c, int(y_lim_cyan)),
+        (0, 255, 255),
+        8
+    )
+    # Point blanc = apex
+    cv2.circle(display_img, (x_c, Y_origine_canal), 18, (255, 255, 255), -1)
 
     # ==============================
-    # 6. VISUALISATION
+    # 7. VISUALISATION
     # ==============================
     col1, col2 = st.columns([1, 1.2])
 
     with col1:
-        st.markdown("### 🔎 Axe réel du canal & cartographie H")
+        st.markdown("### 🔎 Cartographie Densitométrique H (canal radiculaire)")
         st.image(display_img, use_container_width=True)
-        
-        if is_on_prosthesis:
-            st.warning("⚠️ Point apical suspecté sur TENON/COURONNE (H élevé, cas EXCLU).")
 
         st.markdown(f"""
-        <div style="background-color: #1a1a1a; padding: 15px; border-radius: 15px; border: 1px solid #00fbff;">
+        <div style="background-color: #1a1a1a; padding: 15px; border-radius: 10px; border: 1px solid #00fbff;">
             <p style="margin:0; color:#ff4b4b;">Rouge : H &lt; 0.25 (Zone noire)</p>
             <p style="margin:0; color:#ffff00;">Jaune : 0.25 ≤ H &lt; 0.45 (Zone intermédiaire)</p>
             <p style="margin:0; color:#00ff00;">Vert : H ≥ 0.45 (Zone dense / conforme)</p>
             <hr style="margin:10px 0; border-color: #333;">
-            <p style="margin:0;"><b style="color:cyan;">━━━</b> Axe réel du canal (profil Cyan)</p>
-            <p style="margin:0;"><b style="color:red;">━━━</b> Profil latéral radiculaire (Rouge)</p>
+            <p style="margin:0;"><b style="color:red;">━━━</b> Profil Rouge : Canal (apex → bas) suivant un axe oblique</p>
+            <p style="margin:0;"><b style="color:cyan;">━━━</b> Profil Cyan : Fenêtre apicale W={W_exp}px centrée sur l'apex</p>
+            <p style="margin:0;"><b style="color:white;">●</b> Point Blanc : Apex (origine clinique du canal, Y_apex={Y_apex})</p>
             <hr style="margin:10px 0; border-color: #333%;">
             <p style="margin:0; font-weight:bold; color:#00fbff;">
-            📍 Classe H au Point Apical : {label_apex} — Hf = {h_final:.4f}
+            📍 H à l’Apex (distance 0) : {label_apex} — Hf = {h_final:.4f}
             </p>
         </div>
         """, unsafe_allow_html=True)
 
     with col2:
-        if is_on_prosthesis:
-            st.warning("Profil densitométrique non interprétable : cas EXCLU (Point apical sur Tenon/Couronne).")
-        else:
-            fig1 = go.Figure()
-            fig1.add_trace(go.Scatter(
-                x=np.arange(len(H_smooth_cyan)),
-                y=H_smooth_cyan,
-                name="Profil le long de l'axe canal (Cyan)",
-                line=dict(color='cyan', width=4)
-            ))
-            fig1.add_hrect(
-                y0=h_critique, y1=1.0,
-                fillcolor="green", opacity=0.1,
-                annotation_text="ZONE CONFORME"
-            )
-            fig1.add_hline(
-                y=h_critique,
-                line_dash="dash",
-                line_color="white",
-                annotation_text="SEUIL H = 0.45"
-            )
-            fig1.update_layout(
-                template="plotly_dark",
-                height=400,
-                title="Profil densitométrique le long de l'axe réel du canal",
-                xaxis_title="Distance le long de l'axe (px)",
-                yaxis_title="Densité H"
-            )
-            st.plotly_chart(fig1, use_container_width=True)
+        fig1 = go.Figure()
+        fig1.add_trace(go.Scatter(
+            x=distances,
+            y=H_smooth_cyan,
+            name="Densité canal (axe oblique)",
+            line=dict(color='cyan', width=4)
+        ))
+        fig1.add_hrect(y0=0.45, y1=1.0, fillcolor="green", opacity=0.1,
+                       annotation_text="ZONE CONFORME (H ≥ 0.45)")
+        fig1.add_hline(y=0.45, line_dash="dash", line_color="white",
+                       annotation_text="SEUIL H = 0.45")
+        fig1.update_layout(
+            template="plotly_dark",
+            height=400,
+            title="Figure 1 : Profil d'Étanchéité (0 = apex, L = Y_bas) le long de l'axe oblique",
+            xaxis_title="Distance canalaire depuis l'apex (px)",
+            yaxis_title="Densité H"
+        )
+        st.plotly_chart(fig1, use_container_width=True)
 
     st.divider()
     col3, col4 = st.columns([1.2, 1])
 
     with col3:
-        if is_on_prosthesis:
-            st.info("Profil de continuité latérale non affiché (Point apical sur Tenon/Couronne — cas EXCLU).")
-        else:
-            fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(
-                x=np.arange(len(H_smooth_rouge)),
-                y=H_smooth_rouge,
-                name="Profil latéral radiculaire (Rouge)",
-                line=dict(color='red', width=4)
-            ))
-            fig2.update_layout(
-                template="plotly_dark",
-                height=400,
-                title="Profil de continuité structurelle (latéral au canal)",
-                xaxis_title="Distance le long de l'axe (px)",
-                yaxis_title="Densité H"
-            )
-            st.plotly_chart(fig2, use_container_width=True)
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(
+            x=distances,
+            y=H_smooth_rouge,
+            name="Densité Rouge (latérale)",
+            line=dict(color='red', width=4)
+        ))
+        fig2.update_layout(
+            template="plotly_dark",
+            height=400,
+            title="Figure 2 : Profil de Continuité Structurelle (0 = apex)",
+            xaxis_title="Distance canalaire depuis l'apex (px)",
+            yaxis_title="Densité H"
+        )
+        st.plotly_chart(fig2, use_container_width=True)
 
     with col4:
-        st.markdown("### 📝 Bilan Scientifique")
-        st.latex(f"L_{{canal}} = {L} \\, \\text{{px}}")
-        st.metric("Indice Apical (Hf)", f"{h_final:.4f}", delta=f"{ecart_seuil:.4f}")
+        st.markdown("### 📝 Bilan Scientifique (Réf. H = 0.45)")
+        st.latex(r"H_{\text{canal}} = Y_{\text{bas}} - Y_{\text{apex}} = " + f"{H_canal}")
+        st.latex(r"W_{\text{fenêtre}} = L \times 0.34 = " + f"{W_exp}" + r"\ \text{px}")
+        st.latex(r"Ratio_{\text{sécurité}} = \frac{H_{f}}{0.45} \times 100 = " + f"{ratio_securite:.1f}" + r"\ \%")
 
-        tiers_coronal_ok = h_coronal_mean >= h_critique
-        tiers_moyen_ok   = h_moyen_mean   >= h_critique
-        tiers_apical_ok  = h_apical_mean  >= h_critique
+        st.divider()
+        st.metric("Indice H final à l’Apex (Hf)", f"{h_final:.4f}", delta=f"{ecart_seuil:.4f}")
 
-        # 3 cas : EXCLU / CONFORME / NON CONFORME
-        if is_on_prosthesis:
-            statut_diag_ui = "🟡 EXCLU (Point apical sur tenon/couronne)"
-            st.warning("VERDICT : 🟡 EXCLU — Point apical sur TENON/COURONNE, apex non analysable (repositionner le repère).")
+        if h_final >= 0.45:
+            st.success("VERDICT : ✅ CONFORME (Hf ≥ 0.45 à l’apex)")
         else:
-            final_conforme = tiers_coronal_ok and tiers_moyen_ok and tiers_apical_ok
-            if final_conforme:
-                statut_diag_ui = "✅ CONFORME"
-                st.success("VERDICT : ✅ CONFORME (tiers coronal, moyen et apical denses).")
-            else:
-                statut_diag_ui = "🚨 NON CONFORME"
-                st.error("VERDICT : 🚨 NON CONFORME (au moins un tiers insuffisamment dense).")
-                if not tiers_coronal_ok:
-                    st.caption(f"Raison : Tiers coronal défectueux (H moyen = {h_coronal_mean:.2f}).")
-                if not tiers_moyen_ok:
-                    st.caption(f"Raison : Tiers moyen défectueux (H moyen = {h_moyen_mean:.2f}).")
-                if not tiers_apical_ok:
-                    st.caption(f"Raison : Tiers apical défectueux (H moyen = {h_apical_mean:.2f}).")
+            st.error("VERDICT : 🚨 NON CONFORME (Hf < 0.45 à l’apex)")
 
     # ==============================
-    # 7. RAPPORT D'EXPERTISE
+    # 8. RAPPORT D'EXPERTISE
     # ==============================
-    if is_on_prosthesis:
-        statut_diag = "🟡 EXCLU (Point apical sur tenon/couronne, apex non analysable)"
-    else:
-        final_conforme = tiers_coronal_ok and tiers_moyen_ok and tiers_apical_ok
-        if final_conforme:
-            statut_diag = "✅ CONFORME"
-        else:
-            statut_diag = "🚨 NON CONFORME"
-
     rapport_expert = f"""==================================================
-RAPPORT D'EXPERTISE DENTAIRE - SYSTÈME CAD IA v4.7
+RAPPORT D'EXPERTISE DENTAIRE - CANAL RADICULAIRE
 ==================================================
 PATIENT / CAS      : {patient_id}
 DATE DE L'ANALYSE  : {datetime.now().strftime('%d/%m/%Y %H:%M')}
 ==================================================
 
-[1] AXE DU CANAL :
+[1] GÉOMÉTRIE DU CANAL :
 --------------------------------------------------
-- Axe défini entre (x1={x1}, y1={y1}) = entrée canal
-  et (x2={x2}, y2={y2}) = apex radiographique
-- Longueur projetée L_canal ≈ {L} px
+- Axe d'analyse oblique : de (X_apex={x_c}, Y_apex={Y_apex}) à (X_bas={x_bas}, Y_bas={Y_bas})
+- Hauteur projetée du canal analysé (H = Y_bas - Y_apex) : {H_canal} px
+- Distance canalaire 0 → L (0 = apex, L = Y_bas) : L = {L} px
+- Fenêtre apicale d'expertise (W)                 : {W_exp} px
 
-[2] PARAMÈTRES DENSITOMÉTRIQUES (le long de l'axe) :
+[2] PARAMÈTRES DENSITOMÉTRIQUES APICAUX :
 --------------------------------------------------
-- H(Apex sur axe réel) = {h_final:.4f} (Classe: {label_apex})
-- H(Point apical brut, carte H) = {h_at_apex:.4f}
-- H moyen Tiers coronal : {h_coronal_mean:.4f}
-- H moyen Tiers moyen   : {h_moyen_mean:.4f}
-- H moyen Tiers apical  : {h_apical_mean:.4f}
+- Origine du profil 1D le long de l'axe oblique   : point blanc (apex)
+- Système de coordonnées canalaire                : 0 à L (0 = apex, L = bas du canal)
+- H(Apex)                                         : {h_final:.4f}
+- Classe H à l’Apex                               : {label_apex}
+- Seuil de référence                              : H = 0.45
+- Ratio de sécurité Rs                            : {ratio_securite:.1f} %
+- ΔH = Hf - 0.45                                  : {ecart_seuil:.4f}
 
-[3] ANALYSE PAR TIERS (VERDICT EXPERT) :
+[3] DÉCISION & INTERPRÉTATION :
 --------------------------------------------------
-- Tiers coronal : {verdict_coronal}
-- Tiers moyen   : {verdict_moyen}
-- Tiers apical  : {verdict_apical}
-
-Synthèse expert :
-"{expert_verdict}"
-
-[4] FACTEURS DE SÉCURITÉ ET ALERTES :
---------------------------------------------------
-- Ratio de sécurité apical (Hf / 0.45) : {ratio_securite:.1f} %
-- ΔH = Hf - 0.45 = {ecart_seuil:.4f}
-- Point apical sur tenon/couronne : {"OUI" if is_on_prosthesis else "NON"}
-- Seuil prothèse utilisé : H ≥ {PROTHESIS_THRESHOLD:.2f}
-
-[5] DÉCISION FINALE (3 CATÉGORIES) :
---------------------------------------------------
-DIAGNOSTIC FINAL :
 {statut_diag}
+
+INTERPRÉTATION CLINIQUE :
+{interpretation}
+
+[4] REMARQUES SUR LE POSITIONNEMENT :
+--------------------------------------------------
+Les coordonnées de l'axe canalaire (X_apex, Y_apex) → (X_bas, Y_bas) sont définies manuellement
+par l’opérateur sur la radiographie. En fonction des déformations géométriques du cliché, des
+superpositions anatomiques ou de la présence de matériaux radio-opaques (tenon, pilier, couronne),
+cet axe peut s’écarter de l’axe anatomique réel du canal. L’analyse densitométrique décrit alors la
+zone effectivement traversée par le segment étudié et doit être interprétée avec prudence, en
+complément du localisateur d’apex et des autres données cliniques et radiologiques.
 
 ==================================================
 Logiciel CAD IA v4.7 | Analyse Densitométrique CLAHE | 2026
 ==================================================
 """
-    st.subheader("📋 Rapport Final")
+
+    st.subheader("📋 Rapport d'Expertise Densitométrique")
     st.code(rapport_expert, language="text")
-    st.download_button("💾 Exporter le Rapport", rapport_expert, file_name="Expertise_CAD.txt")
+
+    st.download_button(
+        label="💾 Exporter le Rapport (.txt)",
+        data=rapport_expert,
+        file_name=f"Expertise_Canal_{datetime.now().strftime('%Y%m%d')}.txt",
+        mime="text/plain"
+    )
 
 else:
-    st.info("💡 Système CAD IA v4.7 : Prêt pour analyse locale ou via URL.")
+    st.info("💡 Système CAD IA v4.7 prêt. Veuillez charger une radiographie RVG pour démarrer l'analyse.")
