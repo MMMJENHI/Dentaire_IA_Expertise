@@ -98,13 +98,7 @@ if raw_img is not None:
     st.sidebar.subheader("📍 Positionnement CAD (Canal radiculaire)")
 
     x_default = w_img // 2
-    x_c = st.sidebar.slider("X_apex : position X de l'apex (point blanc)", 0, w_img - 1, x_default)
-
-    # Nouveau : X_bas pour suivre la courbure du canal
-    x_bas = st.sidebar.slider(
-        "X_bas : position X au bas du canal (vers collet/couronne)",
-        0, w_img - 1, x_c
-    )
+    x_c = st.sidebar.slider("Axe d'analyse (X)", 0, w_img - 1, x_default)
 
     # Origine canalaire = apex (point blanc, EN HAUT sur la radio)
     y_apex_default = int(h_img * 0.20)
@@ -148,26 +142,14 @@ if raw_img is not None:
     W_exp = max(10, int(L * 0.34))
     y_lim_cyan = min(h_img - 1, Y_origine_canal + W_exp)
 
-    # --- Profils canalaire (origine = Apex) ---
-    # Profil principal le long du canal : apex (x_c, Y_apex) -> bas (x_bas, Y_bas)
-    sig_cyan = profile_line(
-        img_gray,
-        (Y_origine_canal, x_c),
-        (Y_coronaire_canal, x_bas),
-        linewidth=3
-    )
+    # --- Profils canalaire (origine = Y_apex) ---
+    sig_cyan = profile_line(img_gray, (Y_origine_canal, x_c), (Y_coronaire_canal, x_c), linewidth=3)
     H_smooth_cyan = smooth(sig_cyan)
 
-    # Profil latéral (structure radiculaire), décalé de 20 px vers la gauche
-    sig_rouge = profile_line(
-        img_gray,
-        (Y_origine_canal, x_c - 20),
-        (Y_coronaire_canal, x_bas - 20),
-        linewidth=3
-    )
+    sig_rouge = profile_line(img_gray, (Y_origine_canal, x_c - 20), (Y_coronaire_canal, x_c - 20), linewidth=3)
     H_smooth_rouge = smooth(sig_rouge)
 
-    # Axe des distances canalaire : 0 → L (0 = apex, L = bas)
+    # Axe des distances canalaire : 0 → L (0 à Y_apex, L à Y_bas)
     n_points = len(H_smooth_cyan)
     if n_points > 1:
         distances = np.linspace(0, L, n_points)
@@ -244,24 +226,9 @@ if raw_img is not None:
     cartographie_rgb = cv2.addWeighted(base_rgb, 1.0, overlay, 0.35, 0)
 
     display_img = cartographie_rgb.copy()
-    # Profil Rouge : canal oblique (apex -> bas), légèrement décalé en X
-    cv2.line(
-        display_img,
-        (x_c - 20, Y_origine_canal),
-        (x_bas - 20, Y_coronaire_canal),
-        (255, 0, 0),
-        4
-    )
-    # Fenêtre Cyan : verticale locale autour de l'apex
-    cv2.line(
-        display_img,
-        (x_c, Y_origine_canal),
-        (x_c, int(y_lim_cyan)),
-        (0, 255, 255),
-        8
-    )
-    # Point blanc = apex
-    cv2.circle(display_img, (x_c, Y_origine_canal), 18, (255, 255, 255), -1)
+    cv2.line(display_img, (x_c - 20, Y_origine_canal), (x_c - 20, Y_coronaire_canal), (255, 0, 0), 4)   # canal rouge
+    cv2.line(display_img, (x_c, Y_origine_canal), (x_c, int(y_lim_cyan)), (0, 255, 255), 8)              # fenêtre cyan
+    cv2.circle(display_img, (x_c, Y_origine_canal), 18, (255, 255, 255), -1)                             # point blanc
 
     # ==============================
     # 7. VISUALISATION
@@ -278,8 +245,8 @@ if raw_img is not None:
             <p style="margin:0; color:#ffff00;">Jaune : 0.25 ≤ H &lt; 0.45 (Zone intermédiaire)</p>
             <p style="margin:0; color:#00ff00;">Vert : H ≥ 0.45 (Zone dense / conforme)</p>
             <hr style="margin:10px 0; border-color: #333;">
-            <p style="margin:0;"><b style="color:red;">━━━</b> Profil Rouge : Canal (apex → bas) suivant un axe oblique</p>
-            <p style="margin:0;"><b style="color:cyan;">━━━</b> Profil Cyan : Fenêtre apicale W={W_exp}px centrée sur l'apex</p>
+            <p style="margin:0;"><b style="color:red;">━━━</b> Profil Rouge : Canal complet (Y_apex → Y_bas)</p>
+            <p style="margin:0;"><b style="color:cyan;">━━━</b> Profil Cyan : Fenêtre d'expertise W={W_exp}px</p>
             <p style="margin:0;"><b style="color:white;">●</b> Point Blanc : Apex (origine clinique du canal, Y_apex={Y_apex})</p>
             <hr style="margin:10px 0; border-color: #333%;">
             <p style="margin:0; font-weight:bold; color:#00fbff;">
@@ -293,7 +260,7 @@ if raw_img is not None:
         fig1.add_trace(go.Scatter(
             x=distances,
             y=H_smooth_cyan,
-            name="Densité canal (axe oblique)",
+            name="Densité canal",
             line=dict(color='cyan', width=4)
         ))
         fig1.add_hrect(y0=0.45, y1=1.0, fillcolor="green", opacity=0.1,
@@ -303,7 +270,7 @@ if raw_img is not None:
         fig1.update_layout(
             template="plotly_dark",
             height=400,
-            title="Figure 1 : Profil d'Étanchéité (0 = apex, L = Y_bas) le long de l'axe oblique",
+            title="Figure 1 : Profil d'Étanchéité (0 = apex, L = Y_bas)",
             xaxis_title="Distance canalaire depuis l'apex (px)",
             yaxis_title="Densité H"
         )
@@ -317,7 +284,7 @@ if raw_img is not None:
         fig2.add_trace(go.Scatter(
             x=distances,
             y=H_smooth_rouge,
-            name="Densité Rouge (latérale)",
+            name="Densité Rouge",
             line=dict(color='red', width=4)
         ))
         fig2.update_layout(
@@ -355,20 +322,22 @@ DATE DE L'ANALYSE  : {datetime.now().strftime('%d/%m/%Y %H:%M')}
 
 [1] GÉOMÉTRIE DU CANAL :
 --------------------------------------------------
-- Axe d'analyse oblique : de (X_apex={x_c}, Y_apex={Y_apex}) à (X_bas={x_bas}, Y_bas={Y_bas})
-- Hauteur projetée du canal analysé (H = Y_bas - Y_apex) : {H_canal} px
+- Axe d'analyse (X)                        : {x_c} px
+- Y_apex  (origine du canal, point blanc)  : {Y_apex} px
+- Y_bas   (bas du canal analysé)           : {Y_bas} px
+- Hauteur du canal analysé (H = Y_bas - Y_apex) : {H_canal} px
 - Distance canalaire 0 → L (0 = apex, L = Y_bas) : L = {L} px
-- Fenêtre apicale d'expertise (W)                 : {W_exp} px
+- Fenêtre d'expertise (W)                  : {W_exp} px
 
 [2] PARAMÈTRES DENSITOMÉTRIQUES APICAUX :
 --------------------------------------------------
-- Origine du profil 1D le long de l'axe oblique   : point blanc (apex)
-- Système de coordonnées canalaire                : 0 à L (0 = apex, L = bas du canal)
-- H(Apex)                                         : {h_final:.4f}
-- Classe H à l’Apex                               : {label_apex}
-- Seuil de référence                              : H = 0.45
-- Ratio de sécurité Rs                            : {ratio_securite:.1f} %
-- ΔH = Hf - 0.45                                  : {ecart_seuil:.4f}
+- Origine du profil 1D                     : Y_apex (distance 0 sur le canal)
+- Système de coordonnées canalaire         : 0 à L (0 = apex, L = Y_bas)
+- H(Apex)                                  : {h_final:.4f}
+- Classe H à l’Apex                        : {label_apex}
+- Seuil de référence                       : H = 0.45
+- Ratio de sécurité Rs                     : {ratio_securite:.1f} %
+- ΔH = Hf - 0.45                           : {ecart_seuil:.4f}
 
 [3] DÉCISION & INTERPRÉTATION :
 --------------------------------------------------
@@ -379,12 +348,13 @@ INTERPRÉTATION CLINIQUE :
 
 [4] REMARQUES SUR LE POSITIONNEMENT :
 --------------------------------------------------
-Les coordonnées de l'axe canalaire (X_apex, Y_apex) → (X_bas, Y_bas) sont définies manuellement
+Les coordonnées Y_apex (point blanc) et Y_bas (bas du canal analysé) sont définies manuellement
 par l’opérateur sur la radiographie. En fonction des déformations géométriques du cliché, des
 superpositions anatomiques ou de la présence de matériaux radio-opaques (tenon, pilier, couronne),
-cet axe peut s’écarter de l’axe anatomique réel du canal. L’analyse densitométrique décrit alors la
-zone effectivement traversée par le segment étudié et doit être interprétée avec prudence, en
-complément du localisateur d’apex et des autres données cliniques et radiologiques.
+ces points peuvent être partiellement ou totalement en dehors de l’axe réel du canal radiculaire.
+Dans ce cas, l’analyse densitométrique décrit la zone effectivement traversée par le segment d’étude
+et doit être interprétée avec prudence, en complément du localisateur d’apex et des autres données
+cliniques et radiologiques.
 
 ==================================================
 Logiciel CAD IA v4.7 | Analyse Densitométrique CLAHE | 2026
