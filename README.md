@@ -5,7 +5,7 @@
 
 
 ### 📲 Accès Direct à l'Application
-[🚀 Lancer l'Expertise CAD](https://dentaireiaexpertiseia.streamlit.app/)
+[🚀 Lancer l'Expertise CAD](https://dentaireiaexpertiseia1.streamlit.app/)
 
 ### 🗄️ Accès à la Base de Données & Projets de Référence
 
